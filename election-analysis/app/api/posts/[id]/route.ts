@@ -1,7 +1,7 @@
 /*
 목차:
 - 개별 게시글 API 라우트 핸들러
-- GET: 게시글 상세 조회 (조회수 증가)
+- GET: 게시글 상세 조회 (조회수 증가, lean() 최적화)
 - PUT: 게시글 수정 (작성자 권한 확인)
 - DELETE: 게시글 삭제 (작성자 권한 확인)
 */
@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import Post from '@/lib/models/Post';
 
-// 게시글 상세 조회 (GET /api/posts/[id])
+// 게시글 상세 조회 (GET /api/posts/[id]) - 성능 최적화 적용
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -19,7 +19,8 @@ export async function GET(
     await connectDB();
     const { id } = await params;
 
-    const post = await Post.findById(id);
+    // 성능 최적화: lean() 사용으로 빠른 조회
+    const post = await Post.findById(id).lean();
 
     if (!post) {
       return NextResponse.json(
@@ -28,8 +29,11 @@ export async function GET(
       );
     }
 
-    // 조회수 증가
-    await Post.findByIdAndUpdate(id, { $inc: { views: 1 } });
+    // 조회수 증가를 별도 쿼리로 분리 (응답 속도 향상)
+    // 백그라운드에서 실행되도록 await 없이 처리
+    Post.findByIdAndUpdate(id, { $inc: { views: 1 } }).exec().catch(err => {
+      console.error('조회수 업데이트 실패:', err);
+    });
 
     return NextResponse.json(post);
 

@@ -1,7 +1,7 @@
 /*
 목차:
 - Posts API 라우트 핸들러
-- GET: 게시글 목록 조회 (페이지네이션, 정렬)
+- GET: 게시글 목록 조회 (페이지네이션, 정렬, lean() 최적화)
 - POST: 새 게시글 작성 (유효성 검사)
 */
 
@@ -79,7 +79,7 @@ const mockPosts = [
   }
 ];
 
-// 게시글 목록 조회 (GET /api/posts)
+// 게시글 목록 조회 (GET /api/posts) - 성능 최적화 적용
 export async function GET(request: NextRequest) {
   try {
     // MongoDB 연결 시도
@@ -95,13 +95,16 @@ export async function GET(request: NextRequest) {
     const allowedSortFields = ['createdAt', 'likes', 'views'];
     const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
 
+    // 성능 최적화: lean() 사용으로 Mongoose 객체 변환 생략
+    // 인덱스 활용: PostSchema.index({ createdAt: -1, likes: -1, views: -1 })
     const posts = await Post.find({})
       .sort({ [sortField]: order })
       .skip(skip)
       .limit(limit)
-      .select('-content') // 목록에서는 내용 제외
-      .lean();
+      .select('-content') // 목록에서는 내용 제외로 데이터 전송량 감소
+      .lean(); // 성능 최적화: plain JavaScript 객체 반환
 
+    // 총 개수 조회 (캐싱 고려 필요)
     const total = await Post.countDocuments({});
 
     return NextResponse.json({

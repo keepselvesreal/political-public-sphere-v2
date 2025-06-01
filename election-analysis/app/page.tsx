@@ -8,7 +8,7 @@
 
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import useSWRInfinite from 'swr/infinite';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
@@ -47,7 +47,7 @@ interface ApiPost {
   content?: string;
 }
 
-// API 데이터를 PostCard props로 변환하는 함수
+// API 데이터를 PostCard props로 변환하는 함수 (메모이제이션)
 const transformApiPostToCardProps = (apiPost: ApiPost): PostCardProps => {
   return {
     id: apiPost._id,
@@ -60,15 +60,15 @@ const transformApiPostToCardProps = (apiPost: ApiPost): PostCardProps => {
   };
 };
 
-const POSTS_PER_PAGE = 9; // 데스크톱 3x3 그리드
+const POSTS_PER_PAGE = 10; // Task Breakdown 요구사항에 따라 10개로 설정
 
 export default function Home() {
   const { t } = useTranslation('common');
   const [sortBy, setSortBy] = useState<SortOption>('createdAt');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  // SWR fetcher 함수
-  const fetcher = async (url: string): Promise<PostsResponse> => {
+  // SWR fetcher 함수 (성능 최적화)
+  const fetcher = useCallback(async (url: string): Promise<PostsResponse> => {
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error('게시글을 불러오는데 실패했습니다');
@@ -84,18 +84,18 @@ export default function Home() {
       posts: transformedPosts,
       pagination: apiResponse.pagination
     };
-  };
+  }, []);
 
-  // SWR infinite key 생성 함수
-  const getKey = (pageIndex: number, previousPageData: PostsResponse | null) => {
+  // SWR infinite key 생성 함수 (메모이제이션)
+  const getKey = useCallback((pageIndex: number, previousPageData: PostsResponse | null) => {
     // 이전 페이지 데이터가 있고 더 이상 데이터가 없으면 null 반환
     if (previousPageData && !previousPageData.pagination.hasMore) return null;
     
     const skip = pageIndex * POSTS_PER_PAGE;
     return `/api/posts?skip=${skip}&limit=${POSTS_PER_PAGE}&sortBy=${sortBy}&order=${sortOrder}`;
-  };
+  }, [sortBy, sortOrder]);
 
-  // SWR infinite 훅 사용
+  // SWR infinite 훅 사용 (성능 최적화 설정)
   const {
     data,
     error,
@@ -104,63 +104,84 @@ export default function Home() {
     isValidating,
     mutate
   } = useSWRInfinite<PostsResponse>(getKey, fetcher, {
-    revalidateFirstPage: true,
-    revalidateOnFocus: true,
-    revalidateOnReconnect: true,
-    dedupingInterval: 5000,
-    refreshInterval: 30000,
+    revalidateFirstPage: false, // 첫 페이지 재검증 비활성화로 성능 향상
+    revalidateOnFocus: false, // 포커스 시 재검증 비활성화
+    revalidateOnReconnect: true, // 재연결 시에만 재검증
+    dedupingInterval: 10000, // 중복 요청 방지 간격 증가 (10초)
+    refreshInterval: 0, // 자동 새로고침 비활성화
+    errorRetryCount: 3, // 오류 재시도 횟수 제한
+    errorRetryInterval: 5000, // 오류 재시도 간격
+    keepPreviousData: true, // 이전 데이터 유지로 UX 향상
   });
 
-  // 데이터 평탄화
-  const posts = data ? data.flatMap(page => page.posts) : [];
+  // 데이터 평탄화 (메모이제이션)
+  const posts = useMemo(() => {
+    return data ? data.flatMap(page => page.posts) : [];
+  }, [data]);
   
-  const hasMore = data ? data[data.length - 1]?.pagination.hasMore ?? true : true;
+  const hasMore = useMemo(() => {
+    return data ? data[data.length - 1]?.pagination.hasMore ?? true : true;
+  }, [data]);
+
   const isLoading = !data && !error;
   const isLoadingMore = isValidating && data && data.length > 0;
 
-  // 더 많은 데이터 로드
+  // 정렬 변경 핸들러 (메모이제이션)
+  const handleSortChange = useCallback((newSortBy: SortOption, newSortOrder: SortOrder) => {
+    setSortBy(newSortBy);
+    setSortOrder(newSortOrder);
+    // 정렬 변경 시 캐시 초기화
+    mutate();
+  }, [mutate]);
+
+  // 더 많은 데이터 로드 (메모이제이션)
   const loadMore = useCallback(() => {
     if (!isLoadingMore && hasMore) {
       setSize(size + 1);
     }
-  }, [size, setSize, isLoadingMore, hasMore]);
+  }, [isLoadingMore, hasMore, size, setSize]);
 
-  // 정렬 변경 핸들러
-  const handleSortChange = useCallback((newSortBy: SortOption, newSortOrder: SortOrder) => {
-    setSortBy(newSortBy);
-    setSortOrder(newSortOrder);
-    // 데이터 초기화 및 재로드
-    mutate();
-    setSize(1);
-  }, [mutate, setSize]);
+  // 오류 메시지 처리
+  const errorMessage = error ? '게시글을 불러오는데 실패했습니다. 새로고침해주세요.' : null;
 
-  // 에러 메시지
-  const errorMessage = error?.message || null;
+  // 로딩 상태 처리
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-center items-center min-h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">게시글을 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-16">
-      {/* 헤더 섹션 */}
-      <div className="text-center mb-10">
-        <h1 className="text-3xl md:text-4xl font-bold mb-4">
-          Election Analysis Hub
+    <div className="container mx-auto px-4 py-8">
+      {/* 헤더 */}
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold mb-4">
+          {t('title')}
         </h1>
-        <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-          전문가들의 선거 예측과 분석을 비교해보세요. 카드를 클릭하면 상세한 분석을 확인할 수 있습니다.
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          {t('subtitle')}
         </p>
-        
+      </div>
+
+      {/* 글쓰기 버튼 */}
+      <div className="flex justify-end mb-6">
         <Link href="/write">
-          <Button 
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-2 px-6 rounded-full transition-all duration-300 shadow-md hover:shadow-lg"
-            aria-label={t('writePost')}
-          >
-            <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+          <Button className="flex items-center space-x-2">
+            <Plus className="h-4 w-4" />
             <span>{t('writePost')}</span>
-            <ChevronRight className="ml-2 h-4 w-4" aria-hidden="true" />
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </Link>
       </div>
-      
-      {/* 정렬 필터 */}
+
+      {/* 정렬 필터와 통계 */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
           <h2 className="text-xl font-semibold">

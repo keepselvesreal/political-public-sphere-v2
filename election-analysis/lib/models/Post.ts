@@ -95,9 +95,21 @@ const PostSchema: Schema = new Schema({
   toObject: { virtuals: true }
 });
 
-// 복합 인덱스 생성
+// 성능 최적화를 위한 복합 인덱스 설정
+// 1. 최신순 + 인기순 복합 정렬을 위한 인덱스
 PostSchema.index({ createdAt: -1, likes: -1 });
+
+// 2. 조회수순 + 최신순 복합 정렬을 위한 인덱스  
 PostSchema.index({ views: -1, createdAt: -1 });
+
+// 3. 전체 정렬 옵션을 위한 복합 인덱스 (Task Breakdown 요구사항)
+PostSchema.index({ createdAt: -1, likes: -1, views: -1 });
+
+// 4. 작성자별 게시글 조회 최적화
+PostSchema.index({ authorId: 1, createdAt: -1 });
+
+// 5. 키워드 검색 최적화 (향후 검색 기능용)
+PostSchema.index({ keywords: 1 });
 
 // 득표율 합계 검증 (100%여야 함)
 PostSchema.pre('save', function(this: IPost) {

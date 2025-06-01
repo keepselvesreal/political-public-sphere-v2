@@ -4,10 +4,12 @@
 - 게시글 미리보기 및 링크
 - 반응형 디자인 및 접근성 지원
 - i18n 다국어 지원
+- next/image 최적화 적용
 */
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useTranslation } from 'react-i18next';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -180,7 +182,18 @@ const PostCard = React.memo(function PostCard({
             {analyst ? (
               <>
                 <Avatar className="h-6 w-6">
-                  <AvatarImage src={analyst.avatar} alt={analyst.name} />
+                  <div className="relative w-6 h-6 rounded-full overflow-hidden">
+                    <Image
+                      src={analyst.avatar}
+                      alt={analyst.name}
+                      fill
+                      sizes="24px"
+                      className="object-cover"
+                      loading="lazy"
+                      placeholder="blur"
+                      blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R+Rj5m4xbDMvLvZWjfvHd5n2v8AkJjqvU9P2vqf/9k="
+                    />
+                  </div>
                   <AvatarFallback>{analyst.name[0]}</AvatarFallback>
                 </Avatar>
                 <div>
