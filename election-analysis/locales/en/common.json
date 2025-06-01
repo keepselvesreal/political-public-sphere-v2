@@ -1,7 +1,19 @@
 {
   "sortBy": "Sort by",
+  "sortBy.latest": "Latest",
+  "sortBy.popular": "Most Popular",
+  "sortBy.mostViewed": "Most Viewed",
+  "sortBy.mostComments": "Most Comments",
+  "sortBy.ascending": "Ascending",
+  "sortBy.descending": "Descending",
+  "sortBy.options": "Sort Options",
+  "sortBy.placeholder": "Select sort method",
+  "sortBy.selectLabel": "Select post sorting method",
   "loadMore": "Load more",
-  "writePost": "Write Post",
+  "loading": "Loading...",
+  "noMorePosts": "All posts have been loaded",
+  "retry": "Retry",
+  "postList": "Post list",
   "login": "Login",
   "logout": "Logout",
   "title": "Title",
@@ -17,5 +29,6 @@
   "comments": "Comments",
   "views": "Views",
   "createdAt": "Created At",
-  "author": "Author"
+  "author": "Author",
+  "writePost": "Write Post"
 } 

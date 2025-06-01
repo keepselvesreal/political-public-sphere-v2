@@ -1,7 +1,19 @@
 {
   "sortBy": "정렬 기준",
+  "sortBy.latest": "최신순",
+  "sortBy.popular": "인기순",
+  "sortBy.mostViewed": "조회순",
+  "sortBy.mostComments": "댓글순",
+  "sortBy.ascending": "오름차순",
+  "sortBy.descending": "내림차순",
+  "sortBy.options": "정렬 옵션",
+  "sortBy.placeholder": "정렬 방식 선택",
+  "sortBy.selectLabel": "게시글 정렬 방식 선택",
   "loadMore": "더 보기",
-  "writePost": "작성하기",
+  "loading": "로딩 중...",
+  "noMorePosts": "모든 게시글을 불러왔습니다",
+  "retry": "다시 시도",
+  "postList": "게시글 목록",
   "login": "로그인",
   "logout": "로그아웃",
   "title": "제목",
@@ -17,5 +29,6 @@
   "comments": "댓글",
   "views": "조회수",
   "createdAt": "작성일",
-  "author": "작성자"
+  "author": "작성자",
+  "writePost": "작성하기"
 } 
