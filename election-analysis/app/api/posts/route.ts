@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
-    const { title, winner, gap, keywords, content, authorId } = body;
+    const { title, winner, gap, votes, keywords, content, authorId } = body;
 
     // 유효성 검사
     if (!title || !winner || gap === undefined || !content || !authorId) {
@@ -176,9 +176,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (title.length > 200) {
+    // votes 필드 유효성 검사
+    if (votes && typeof votes === 'object') {
+      const { candidate1, candidate2 } = votes;
+      if (typeof candidate1 !== 'number' || typeof candidate2 !== 'number' ||
+          candidate1 < 0 || candidate1 > 100 || candidate2 < 0 || candidate2 > 100) {
+        return NextResponse.json(
+          { error: '득표율은 0-100 사이의 숫자여야 합니다', status: 400 },
+          { status: 400 }
+        );
+      }
+      
+      const total = candidate1 + candidate2;
+      if (Math.abs(total - 100) > 0.1) {
+        return NextResponse.json(
+          { error: '득표율 합계는 100%여야 합니다', status: 400 },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (title.length > 100) { // Task Breakdown에 따라 100자로 제한
       return NextResponse.json(
-        { error: '제목은 200자를 초과할 수 없습니다', status: 400 },
+        { error: '제목은 100자를 초과할 수 없습니다', status: 400 },
         { status: 400 }
       );
     }
@@ -190,19 +210,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 키워드 배열 검증
+    // 키워드 배열 검증 (최대 5개)
     const validKeywords = Array.isArray(keywords) 
-      ? keywords.filter(k => typeof k === 'string' && k.trim().length > 0)
+      ? keywords.filter(k => typeof k === 'string' && k.trim().length > 0).slice(0, 5)
       : [];
 
     const newPost = new Post({
       title: title.trim(),
       winner: winner.trim(),
       gap,
+      votes: votes || { candidate1: 50, candidate2: 50 }, // votes 필드 추가
       keywords: validKeywords,
       content: content.trim(),
       authorId,
-      votes: { up: 0, down: 0 },
       likes: 0,
       views: 0
     });

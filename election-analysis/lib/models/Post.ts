@@ -1,8 +1,9 @@
 /*
 목차:
 - Post 모델 스키마 정의
-- 필드: title, winner, gap, votes, keywords, content, authorId, createdAt, likes, views
+- 필드: title, winner, gap, votes(candidate1, candidate2), keywords, content, authorId, createdAt, likes, views
 - 인덱스: createdAt, likes, views
+- 가상 필드: totalVotePercentage, marginPercentage
 */
 
 import mongoose, { Schema, Document } from 'mongoose';
@@ -12,8 +13,8 @@ export interface IPost extends Document {
   winner: string;
   gap: number;
   votes: {
-    up: number;
-    down: number;
+    candidate1: number;
+    candidate2: number;
   };
   keywords: string[];
   content: string;
@@ -28,7 +29,7 @@ const PostSchema: Schema = new Schema({
     type: String,
     required: [true, '제목은 필수입니다'],
     trim: true,
-    maxlength: [200, '제목은 200자를 초과할 수 없습니다']
+    maxlength: [100, '제목은 100자를 초과할 수 없습니다']
   },
   winner: {
     type: String,
@@ -43,15 +44,17 @@ const PostSchema: Schema = new Schema({
     max: [100, '득표율 격차는 100을 초과할 수 없습니다']
   },
   votes: {
-    up: {
+    candidate1: {
       type: Number,
-      default: 0,
-      min: [0, '추천 수는 0 이상이어야 합니다']
+      required: [true, '후보 1 득표율은 필수입니다'],
+      min: [0, '득표율은 0 이상이어야 합니다'],
+      max: [100, '득표율은 100을 초과할 수 없습니다']
     },
-    down: {
+    candidate2: {
       type: Number,
-      default: 0,
-      min: [0, '비추천 수는 0 이상이어야 합니다']
+      required: [true, '후보 2 득표율은 필수입니다'],
+      min: [0, '득표율은 0 이상이어야 합니다'],
+      max: [100, '득표율은 100을 초과할 수 없습니다']
     }
   },
   keywords: [{
@@ -96,15 +99,22 @@ const PostSchema: Schema = new Schema({
 PostSchema.index({ createdAt: -1, likes: -1 });
 PostSchema.index({ views: -1, createdAt: -1 });
 
-// 가상 필드: 총 투표 수
-PostSchema.virtual('totalVotes').get(function(this: IPost) {
-  return this.votes.up + this.votes.down;
+// 득표율 합계 검증 (100%여야 함)
+PostSchema.pre('save', function(this: IPost) {
+  const total = this.votes.candidate1 + this.votes.candidate2;
+  if (Math.abs(total - 100) > 0.1) {
+    throw new Error('득표율 합계는 100%여야 합니다');
+  }
 });
 
-// 가상 필드: 추천 비율
-PostSchema.virtual('upvoteRatio').get(function(this: IPost) {
-  const total = this.votes.up + this.votes.down;
-  return total > 0 ? (this.votes.up / total) * 100 : 0;
+// 가상 필드: 총 득표율 (항상 100이어야 함)
+PostSchema.virtual('totalVotePercentage').get(function(this: IPost) {
+  return this.votes.candidate1 + this.votes.candidate2;
+});
+
+// 가상 필드: 득표율 격차 (계산된 값)
+PostSchema.virtual('marginPercentage').get(function(this: IPost) {
+  return Math.abs(this.votes.candidate1 - this.votes.candidate2);
 });
 
 export default mongoose.models.Post || mongoose.model<IPost>('Post', PostSchema); 
