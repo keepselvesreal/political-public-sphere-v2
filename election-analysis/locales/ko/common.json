@@ -31,6 +31,7 @@
   "createdAt": "작성일",
   "author": "작성자",
   "writePost": "작성하기",
+  "analyzeMyself": "나도 분석해보기",
   "comment.add": "댓글 추가",
   "comment.placeholder": "댓글을 입력하세요...",
   "comment.reply": "답글",

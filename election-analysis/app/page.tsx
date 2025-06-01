@@ -4,6 +4,7 @@
 - SWR infinite를 활용한 무한 스크롤
 - 반응형 그리드 레이아웃 (데스크톱 3x3, 모바일 1열)
 - 정렬 필터 및 접근성 지원
+- "나도 분석해보기" 버튼 (글쓰기 화면 연결)
 */
 
 "use client";
@@ -160,23 +161,13 @@ export default function Home() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* 헤더 */}
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">
-          {t('title')}
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          {t('subtitle')}
-        </p>
-      </div>
-
-      {/* 글쓰기 버튼 */}
-      <div className="flex justify-end mb-6">
+      {/* 나도 분석해보기 버튼 */}
+      <div className="flex justify-center mb-8">
         <Link href="/write">
-          <Button className="flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>{t('writePost')}</span>
-            <ChevronRight className="h-4 w-4" />
+          <Button size="lg" className="flex items-center space-x-2 px-8 py-3">
+            <Plus className="h-5 w-5" />
+            <span className="text-lg font-medium">{t('analyzeMyself')}</span>
+            <ChevronRight className="h-5 w-5" />
           </Button>
         </Link>
       </div>
@@ -232,7 +223,7 @@ export default function Home() {
             <Link href="/write">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                {t('writePost')}
+                {t('analyzeMyself')}
               </Button>
             </Link>
           </div>
