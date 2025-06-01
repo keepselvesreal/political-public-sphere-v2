@@ -1,0 +1,21 @@
+{
+  "sortBy": "Sort by",
+  "loadMore": "Load more",
+  "writePost": "Write Post",
+  "login": "Login",
+  "logout": "Logout",
+  "title": "Title",
+  "winner": "Predicted Winner",
+  "voteGap": "Vote Gap",
+  "keywords": "Keywords",
+  "content": "Content",
+  "submit": "Submit",
+  "cancel": "Cancel",
+  "like": "Like",
+  "dislike": "Dislike",
+  "comment": "Comment",
+  "comments": "Comments",
+  "views": "Views",
+  "createdAt": "Created At",
+  "author": "Author"
+} 

@@ -1,0 +1,21 @@
+{
+  "sortBy": "정렬 기준",
+  "loadMore": "더 보기",
+  "writePost": "작성하기",
+  "login": "로그인",
+  "logout": "로그아웃",
+  "title": "제목",
+  "winner": "예측 당선자",
+  "voteGap": "득표율 격차",
+  "keywords": "키워드",
+  "content": "내용",
+  "submit": "제출",
+  "cancel": "취소",
+  "like": "추천",
+  "dislike": "비추천",
+  "comment": "댓글",
+  "comments": "댓글",
+  "views": "조회수",
+  "createdAt": "작성일",
+  "author": "작성자"
+} 
