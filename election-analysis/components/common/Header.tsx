@@ -2,12 +2,21 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import { ModeToggle } from '@/components/ModeToggle';
-import { BarChart2 } from 'lucide-react';
+import { BarChart2, User, LogOut, PenTool } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const { data: session, status } = useSession();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -17,6 +26,63 @@ export default function Header() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // 인증 상태별 버튼 렌더링
+  const renderAuthButtons = () => {
+    if (status === 'loading') {
+      return (
+        <div className="w-20 h-9 bg-gray-200 dark:bg-gray-700 animate-pulse rounded"></div>
+      );
+    }
+
+    if (session?.user) {
+      return (
+        <div className="flex items-center space-x-2">
+          <Link href="/write">
+            <Button variant="outline" size="sm" className="flex items-center space-x-1">
+              <PenTool className="h-4 w-4" />
+              <span>글쓰기</span>
+            </Button>
+          </Link>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="flex items-center space-x-1">
+                <User className="h-4 w-4" />
+                <span className="max-w-20 truncate">{session.user.name || session.user.email}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="flex items-center space-x-2">
+                  <User className="h-4 w-4" />
+                  <span>프로필</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => signOut()}
+                className="flex items-center space-x-2 text-red-600"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>로그아웃</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      );
+    }
+
+    return (
+      <Button 
+        variant="outline" 
+        size="sm"
+        onClick={() => signIn('google')}
+      >
+        로그인
+      </Button>
+    );
+  };
 
   return (
     <header 
@@ -55,7 +121,7 @@ export default function Header() {
           </nav>
           
           <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm">Sign In</Button>
+            {renderAuthButtons()}
             <ModeToggle />
           </div>
         </div>
