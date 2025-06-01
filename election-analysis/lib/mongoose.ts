@@ -12,10 +12,7 @@ export async function connectDB() {
   if (mongoose.connection.readyState >= 1) return;
   
   try {
-    await mongoose.connect(process.env.MONGODB_URI!, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    } as any);
+    await mongoose.connect(process.env.MONGODB_URI!);
     console.log('MongoDB 연결 성공');
   } catch (error) {
     console.error('MongoDB 연결 실패:', error);

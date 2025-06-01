@@ -10,7 +10,7 @@
 
 import React, { useState, useCallback } from 'react';
 import useSWRInfinite from 'swr/infinite';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import SortFilter, { SortOption, SortOrder } from '@/components/SortFilter';
 import PostCard, { PostCardProps } from '@/components/PostCard';
@@ -18,6 +18,9 @@ import InfiniteScrollWrapper from '@/components/InfiniteScrollWrapper';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
+
+// i18n 초기화
+import '@/lib/i18n';
 
 interface PostsResponse {
   posts: PostCardProps[];
@@ -28,6 +31,34 @@ interface PostsResponse {
     hasMore: boolean;
   };
 }
+
+// API 응답 데이터 타입 (MongoDB 스타일)
+interface ApiPost {
+  _id: string;
+  title: string;
+  winner: string;
+  gap: number;
+  keywords?: string[];
+  votes?: { up: number; down: number };
+  likes?: number;
+  views?: number;
+  createdAt?: string;
+  authorId?: string;
+  content?: string;
+}
+
+// API 데이터를 PostCard props로 변환하는 함수
+const transformApiPostToCardProps = (apiPost: ApiPost): PostCardProps => {
+  return {
+    id: apiPost._id,
+    predictedWinner: apiPost.winner,
+    marginPercentage: apiPost.gap,
+    mainQuote: apiPost.title, // title을 mainQuote로 사용
+    candidates: undefined, // API에서 제공하지 않음
+    tags: apiPost.keywords,
+    analyst: undefined, // API에서 제공하지 않음
+  };
+};
 
 const POSTS_PER_PAGE = 9; // 데스크톱 3x3 그리드
 
@@ -42,7 +73,17 @@ export default function Home() {
     if (!response.ok) {
       throw new Error('게시글을 불러오는데 실패했습니다');
     }
-    return response.json();
+    const apiResponse = await response.json();
+    
+    // API 응답 데이터를 PostCard props 형식으로 변환
+    const transformedPosts = apiResponse.posts.map((apiPost: ApiPost) => 
+      transformApiPostToCardProps(apiPost)
+    );
+    
+    return {
+      posts: transformedPosts,
+      pagination: apiResponse.pagination
+    };
   };
 
   // SWR infinite key 생성 함수
@@ -63,13 +104,16 @@ export default function Home() {
     isValidating,
     mutate
   } = useSWRInfinite<PostsResponse>(getKey, fetcher, {
-    revalidateFirstPage: false,
-    revalidateOnFocus: false,
-    dedupingInterval: 60000, // 1분간 중복 요청 방지
+    revalidateFirstPage: true,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    dedupingInterval: 5000,
+    refreshInterval: 30000,
   });
 
   // 데이터 평탄화
   const posts = data ? data.flatMap(page => page.posts) : [];
+  
   const hasMore = data ? data[data.length - 1]?.pagination.hasMore ?? true : true;
   const isLoading = !data && !error;
   const isLoadingMore = isValidating && data && data.length > 0;
@@ -150,7 +194,7 @@ export default function Home() {
           aria-label={t('postList')}
         >
           {posts.map((post, index) => (
-            <div key={`${post._id}-${index}`} className="w-full">
+            <div key={`${post.id}-${index}`} className="w-full">
               <PostCard {...post} />
             </div>
           ))}

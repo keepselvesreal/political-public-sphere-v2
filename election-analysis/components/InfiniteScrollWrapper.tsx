@@ -10,7 +10,7 @@
 
 import React from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import { Loader2, AlertCircle } from 'lucide-react';
 

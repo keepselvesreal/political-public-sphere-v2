@@ -30,5 +30,18 @@
   "views": "Views",
   "createdAt": "Created At",
   "author": "Author",
-  "writePost": "Write Post"
+  "writePost": "Write Post",
+  "comment.add": "Add Comment",
+  "comment.placeholder": "Add your comment...",
+  "comment.reply": "Reply",
+  "comment.reply.placeholder": "Write a reply...",
+  "comment.post": "Post Comment",
+  "comment.loginRequired": "Please login to add a comment",
+  "vote.helpful": "Was this analysis helpful?",
+  "vote.like.aria": "Like this post",
+  "vote.dislike.aria": "Dislike this post",
+  "comment.like.aria": "Like this comment",
+  "comment.reply.aria": "Reply to this comment",
+  "backToList": "Back to all predictions",
+  "backToList.aria": "Go back to post list"
 } 

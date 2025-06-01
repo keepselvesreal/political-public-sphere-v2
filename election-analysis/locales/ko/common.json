@@ -30,5 +30,18 @@
   "views": "조회수",
   "createdAt": "작성일",
   "author": "작성자",
-  "writePost": "작성하기"
+  "writePost": "작성하기",
+  "comment.add": "댓글 추가",
+  "comment.placeholder": "댓글을 입력하세요...",
+  "comment.reply": "답글",
+  "comment.reply.placeholder": "답글을 입력하세요...",
+  "comment.post": "댓글 작성",
+  "comment.loginRequired": "댓글을 작성하려면 로그인이 필요합니다",
+  "vote.helpful": "이 분석이 도움이 되었나요?",
+  "vote.like.aria": "이 게시글 추천하기",
+  "vote.dislike.aria": "이 게시글 비추천하기",
+  "comment.like.aria": "이 댓글 추천하기",
+  "comment.reply.aria": "이 댓글에 답글 달기",
+  "backToList": "목록으로 돌아가기",
+  "backToList.aria": "게시글 목록으로 돌아가기"
 } 

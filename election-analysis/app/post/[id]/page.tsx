@@ -1,147 +1,149 @@
+/*
+목차:
+- Post Detail Page (게시글 상세 페이지)
+- SSR 지원 및 동적 라우팅
+- 투표 및 댓글 시스템 통합
+- i18n 다국어 지원
+- A11y 접근성 지원
+*/
+
 import { notFound } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import CommentSection from '@/components/CommentSection';
-import VoteButtons from '@/components/VoteButtons';
+import PostDetailContent from '@/components/PostDetailContent';
+import { connectDB } from '@/lib/mongoose';
+import Post from '@/lib/models/Post';
 
-// Mock data for the post details
-const MOCK_POSTS = [
-  {
-    id: '1',
-    title: 'Lee Jae-myung Projected to Win by +7% Margin',
-    predictedWinner: 'Lee Jae-myung',
-    marginPercentage: 7,
-    mainQuote: 'Government judgment outweighed fear of criminals.',
+// API 응답 데이터 타입 (MongoDB 스타일)
+interface ApiPost {
+  _id: string;
+  title: string;
+  winner: string;
+  gap: number;
+  content: string;
+  keywords?: string[];
+  votes?: { up: number; down: number };
+  likes?: number;
+  views?: number;
+  createdAt?: string;
+  authorId?: string;
+}
+
+// Mock 데이터 (MongoDB 연결 실패 시 사용)
+const MOCK_POSTS: Record<string, ApiPost> = {
+  '683c8a49fdaaf1442b1d3651': {
+    _id: '683c8a49fdaaf1442b1d3651',
+    title: '민노당의 기적',
+    winner: '권영국',
+    gap: 1,
     content: `
-      <p>The latest polling data suggests that Lee Jae-myung is positioned to win the upcoming election with a significant margin of +7%. This projection is based on a comprehensive analysis of voter sentiment across different demographics and regions.</p>
+      <p>최신 여론조사 데이터에 따르면 권영국 후보가 예상외로 선전하며 1% 차이로 앞서고 있는 것으로 나타났습니다.</p>
       
-      <h2>Key Findings</h2>
-      <p>Our analysis indicates that Lee's campaign has successfully focused on economic policies that resonate with independent voters in their 30s. The approval rating shift observed in the past month demonstrates a growing confidence in Lee's leadership capabilities.</p>
+      <h2>주요 발견사항</h2>
+      <p>권영국 후보의 선전은 주로 젊은 유권자층의 지지에 기인한 것으로 분석됩니다. 특히 20-30대 유권자들 사이에서 기존 정치권에 대한 피로감이 작용한 것으로 보입니다.</p>
       
-      <h2>Demographic Breakdown</h2>
-      <p>The support for Lee Jae-myung is particularly strong among urban voters and those with higher education. Meanwhile, Kim Moon-soo maintains strong support from traditional conservative bases but has failed to expand beyond these groups.</p>
+      <h2>지역별 분석</h2>
+      <p>수도권에서는 여전히 접전 양상을 보이고 있으나, 일부 지방에서 권영국 후보에 대한 지지가 예상보다 높게 나타나고 있습니다.</p>
       
-      <h2>Regional Analysis</h2>
-      <p>Lee's strongest support comes from Seoul and Gyeonggi Province, while Kim performs better in rural areas and parts of Gyeongsang Province. The gap between these regional preferences has narrowed compared to previous elections, indicating a potentially more unified electorate.</p>
-      
-      <h2>Policy Impact</h2>
-      <p>The emphasis on judicial reform and economic growth has played a significant role in shifting public opinion. Concerns about criminal justice have been overshadowed by broader governance considerations, as reflected in our polling data.</p>
-      
-      <h2>Conclusion</h2>
-      <p>While there are still several weeks until the election, current trends strongly favor Lee Jae-myung. Barring any major scandals or unexpected developments, we project a victory with a margin of approximately 7 percentage points.</p>
+      <h2>결론</h2>
+      <p>아직 선거까지 시간이 남아있어 변수가 많지만, 현재 추세로는 매우 접전이 예상됩니다.</p>
     `,
-    candidates: [
-      { name: 'Lee Jae-myung', percentage: 52, color: 'bg-blue-500' },
-      { name: 'Kim Moon-soo', percentage: 41, color: 'bg-red-500' },
-      { name: 'Lee Jun-seok', percentage: 9, color: 'bg-green-500' },
-      { name: 'Kwon Young-guk', percentage: 9, color: 'bg-purple-500' },
-    ],
-    tags: ['30s independents', 'approval rating shift', 'economic policy', 'judicial reform'],
-    analyst: {
-      name: 'Dr. Kim Analysis',
-      avatar: '/avatars/analyst1.jpg',
-      institute: 'Political Research Center',
-      date: 'Dec 15, 2024',
-    },
-    votes: { up: 342, down: 56 },
-    comments: 24,
+    keywords: ['민노당', '권영국', '젊은층'],
+    votes: { up: 45, down: 8 },
+    likes: 45,
+    views: 1250,
+    createdAt: new Date().toISOString(),
+    authorId: 'mock-author'
   },
-  // Additional mock posts would be added here
-];
+  '683c89dbfdaaf1442b1d3649': {
+    _id: '683c89dbfdaaf1442b1d3649',
+    title: '내란심판의 승리',
+    winner: '리재명',
+    gap: 5,
+    content: `
+      <p>최근 정치적 사건들이 여론에 미친 영향을 분석한 결과, 리재명 후보가 5% 차이로 앞서는 것으로 나타났습니다.</p>
+      
+      <h2>여론 변화</h2>
+      <p>지난 한 달간의 여론 변화를 보면, 정치적 안정성을 중시하는 유권자들의 성향이 뚜렷하게 나타나고 있습니다.</p>
+      
+      <h2>지지층 분석</h2>
+      <p>리재명 후보는 특히 중장년층과 진보 성향 유권자들로부터 강한 지지를 받고 있는 것으로 분석됩니다.</p>
+      
+      <h2>전망</h2>
+      <p>현재 추세가 지속된다면 리재명 후보의 승리 가능성이 높아 보입니다.</p>
+    `,
+    keywords: ['리재명', '내란심판', '정치안정'],
+    votes: { up: 67, down: 12 },
+    likes: 67,
+    views: 2100,
+    createdAt: new Date().toISOString(),
+    authorId: 'mock-author'
+  }
+};
 
+// API 데이터를 PostDetailContent props로 변환하는 함수
+const transformApiPostToDetailProps = (apiPost: ApiPost) => {
+  return {
+    id: apiPost._id,
+    title: apiPost.title,
+    predictedWinner: apiPost.winner,
+    marginPercentage: apiPost.gap,
+    mainQuote: apiPost.title,
+    content: apiPost.content || '',
+    candidates: undefined, // API에서 제공하지 않음
+    tags: apiPost.keywords || [],
+    analyst: undefined, // API에서 제공하지 않음
+    votes: {
+      up: apiPost.votes?.up || 0,
+      down: apiPost.votes?.down || 0
+    },
+    comments: 0, // 실제로는 댓글 수를 계산해야 함
+  };
+};
+
+// 서버 컴포넌트 - async 함수 사용 가능
 export default async function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   // Next.js 15에서는 params를 await로 처리해야 함
   const { id } = await params;
   
-  // In a real app, this would fetch from an API
-  const post = MOCK_POSTS.find(p => p.id === id);
+  try {
+    // MongoDB에서 직접 조회 시도
+    await connectDB();
+    const mongoPost = await Post.findById(id);
+    
+    if (mongoPost) {
+      // 조회수 증가
+      await Post.findByIdAndUpdate(id, { $inc: { views: 1 } });
+      
+      // MongoDB 객체를 plain object로 변환
+      const plainPost = JSON.parse(JSON.stringify(mongoPost));
+      
+      const apiPost: ApiPost = {
+        _id: plainPost._id,
+        title: plainPost.title,
+        winner: plainPost.winner,
+        gap: plainPost.gap,
+        content: plainPost.content || '',
+        keywords: plainPost.keywords,
+        votes: plainPost.votes,
+        likes: plainPost.likes,
+        views: plainPost.views,
+        createdAt: plainPost.createdAt,
+        authorId: plainPost.authorId
+      };
+      
+      const post = transformApiPostToDetailProps(apiPost);
+      return <PostDetailContent post={post} />;
+    }
+    
+  } catch (error) {
+    console.error('MongoDB 조회 실패, Mock 데이터 사용:', error);
+  }
   
-  if (!post) {
+  // MongoDB 실패 시 Mock 데이터 사용
+  const mockPost = MOCK_POSTS[id];
+  if (!mockPost) {
     notFound();
   }
   
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <Link 
-        href="/" 
-        className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to all predictions
-      </Link>
-      
-      <div className="bg-white dark:bg-gray-950 rounded-xl shadow-md overflow-hidden">
-        <div className="p-6 md:p-8">
-          <div className="flex items-center space-x-3 mb-4">
-            <span className="text-amber-500 text-xl">🏆</span>
-            <span className="text-sm font-semibold bg-amber-100 dark:bg-amber-900 dark:text-amber-100 px-2 py-1 rounded">PREDICTED WINNER</span>
-            <span className="text-green-600 font-bold">+{post.marginPercentage}% margin</span>
-          </div>
-          
-          <h1 className="text-3xl font-bold mb-4">{post.title}</h1>
-          
-          <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-600 dark:text-gray-400 mb-6">
-            "{post.mainQuote}"
-          </blockquote>
-          
-          <div className="flex flex-wrap gap-2 mb-8">
-            {post.tags.map((tag, index) => (
-              <Badge key={index} variant="secondary" className="rounded-full">
-                #{tag}
-              </Badge>
-            ))}
-          </div>
-          
-          <div className="flex items-center mb-8 border-b border-gray-200 dark:border-gray-800 pb-6">
-            <Avatar className="h-10 w-10 mr-4">
-              <AvatarImage src={post.analyst.avatar} alt={post.analyst.name} />
-              <AvatarFallback>{post.analyst.name[0]}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="font-medium">{post.analyst.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {post.analyst.institute} • {post.analyst.date}
-              </p>
-            </div>
-          </div>
-          
-          <div className="space-y-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4">Vote Share Projection</h2>
-            <div className="space-y-4">
-              {post.candidates.map((candidate, index) => (
-                <div key={index} className="space-y-1">
-                  <div className="flex justify-between">
-                    <span className="font-medium">{candidate.name}</span>
-                    <span className="font-medium">{candidate.percentage}%</span>
-                  </div>
-                  <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full ${candidate.color}`} 
-                      style={{ width: `${candidate.percentage}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          <div 
-            className="prose dark:prose-invert max-w-none mb-8"
-            dangerouslySetInnerHTML={{ __html: post.content }}
-          />
-          
-          <VoteButtons 
-            postId={post.id} 
-            initialVotes={post.votes} 
-          />
-        </div>
-      </div>
-      
-      <div className="mt-12">
-        <CommentSection postId={post.id} />
-      </div>
-    </div>
-  );
+  const post = transformApiPostToDetailProps(mockPost);
+  return <PostDetailContent post={post} />;
 }

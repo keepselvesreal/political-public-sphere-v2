@@ -9,9 +9,80 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongoose';
 import Post from '@/lib/models/Post';
 
+// 목업 데이터 (개발용)
+const mockPosts = [
+  {
+    id: '1',
+    predictedWinner: 'Lee Jae-myung',
+    marginPercentage: 12.5,
+    mainQuote: 'Government judgment outweighed fear of criminals.',
+    candidates: [
+      { name: 'Lee Jae-myung', percentage: 52, color: 'bg-blue-500' },
+      { name: 'Kim Moon-soo', percentage: 40, color: 'bg-red-500' },
+      { name: 'Others', percentage: 8, color: 'bg-gray-500' },
+    ],
+    tags: ['대선', '여론조사', '정치분석'],
+    analyst: {
+      name: 'Dr. Kim Analysis',
+      avatar: '/avatars/analyst1.jpg',
+      institute: 'Political Research Center',
+      date: '2024-01-15',
+    },
+    votes: { up: 45, down: 8 },
+    createdAt: new Date('2024-01-15').toISOString(),
+    likes: 45,
+    views: 1250
+  },
+  {
+    id: '2',
+    predictedWinner: 'Kim Moon-soo',
+    marginPercentage: 8.3,
+    mainQuote: 'Economic concerns drive conservative shift among voters.',
+    candidates: [
+      { name: 'Kim Moon-soo', percentage: 48, color: 'bg-red-500' },
+      { name: 'Lee Jae-myung', percentage: 40, color: 'bg-blue-500' },
+      { name: 'Others', percentage: 12, color: 'bg-gray-500' },
+    ],
+    tags: ['지방선거', '수도권', '트렌드'],
+    analyst: {
+      name: 'Prof. Park Institute',
+      avatar: '/avatars/analyst2.jpg',
+      institute: 'Economic Policy Institute',
+      date: '2024-01-14',
+    },
+    votes: { up: 32, down: 12 },
+    createdAt: new Date('2024-01-14').toISOString(),
+    likes: 32,
+    views: 890
+  },
+  {
+    id: '3',
+    predictedWinner: 'Lee Jae-myung',
+    marginPercentage: 15.7,
+    mainQuote: 'Youth turnout surge favors progressive candidate.',
+    candidates: [
+      { name: 'Lee Jae-myung', percentage: 56, color: 'bg-blue-500' },
+      { name: 'Kim Moon-soo', percentage: 34, color: 'bg-red-500' },
+      { name: 'Others', percentage: 10, color: 'bg-gray-500' },
+    ],
+    tags: ['국회의원', '예측모델', '검증'],
+    analyst: {
+      name: 'Seoul Polling Center',
+      avatar: '/avatars/analyst3.jpg',
+      institute: 'Demographics Research',
+      date: '2024-01-13',
+    },
+    votes: { up: 67, down: 5 },
+    createdAt: new Date('2024-01-13').toISOString(),
+    likes: 67,
+    views: 2100
+  }
+];
+
 // 게시글 목록 조회 (GET /api/posts)
 export async function GET(request: NextRequest) {
   try {
+    // MongoDB 연결 시도
     await connectDB();
 
     const { searchParams } = new URL(request.url);
@@ -44,11 +115,41 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('게시글 목록 조회 오류:', error);
-    return NextResponse.json(
-      { error: '게시글 목록을 불러오는데 실패했습니다', status: 500 },
-      { status: 500 }
-    );
+    console.error('MongoDB 연결 실패, 목업 데이터 사용:', error);
+    
+    // MongoDB 연결 실패 시 목업 데이터 반환
+    const { searchParams } = new URL(request.url);
+    const skip = parseInt(searchParams.get('skip') || '0');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const order = searchParams.get('order') === 'asc' ? 'asc' : 'desc';
+
+    // 목업 데이터 정렬
+    let sortedPosts = [...mockPosts];
+    if (sortBy === 'likes') {
+      sortedPosts.sort((a, b) => order === 'asc' ? a.likes - b.likes : b.likes - a.likes);
+    } else if (sortBy === 'views') {
+      sortedPosts.sort((a, b) => order === 'asc' ? a.views - b.views : b.views - a.views);
+    } else {
+      sortedPosts.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return order === 'asc' ? dateA - dateB : dateB - dateA;
+      });
+    }
+
+    // 페이지네이션 적용
+    const paginatedPosts = sortedPosts.slice(skip, skip + limit);
+
+    return NextResponse.json({
+      posts: paginatedPosts,
+      pagination: {
+        skip,
+        limit,
+        total: mockPosts.length,
+        hasMore: skip + limit < mockPosts.length
+      }
+    });
   }
 }
 
