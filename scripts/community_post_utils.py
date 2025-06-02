@@ -2,10 +2,11 @@
 CommunityPost 모델 유틸리티 함수들
 
 주요 기능:
-- convert_to_community_post: 스크래퍼 결과를 CommunityPost 모델로 변환 (line 20-60)
-- save_community_post: CommunityPost 데이터를 MongoDB에 저장 (line 62-100)
-- get_community_collection_stats: 저장된 커뮤니티 게시글 통계 조회 (line 102-130)
-- CommunityPostManager: 커뮤니티 게시글 관리 클래스 (line 132-200)
+- SelectionCriteria: 게시글 선별 기준 enum (line 20-30)
+- convert_to_community_post: 스크래퍼 결과를 CommunityPost 모델로 변환 (line 32-80)
+- save_community_post: CommunityPost 데이터를 MongoDB에 저장 (line 82-120)
+- get_community_collection_stats: 저장된 커뮤니티 게시글 통계 조회 (line 122-150)
+- CommunityPostManager: 커뮤니티 게시글 관리 클래스 (line 152-220)
 
 작성자: AI Assistant
 작성일: 2025-01-28
@@ -15,16 +16,26 @@ CommunityPost 모델 유틸리티 함수들
 import pymongo
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+from enum import Enum
 from loguru import logger
 
 
-def convert_to_community_post(experiment_data: Dict[str, Any], site: str = 'fmkorea') -> Dict[str, Any]:
+class SelectionCriteria(Enum):
+    """게시글 선별 기준 enum"""
+    LIKES = "likes"
+    COMMENTS = "comments"
+    VIEWS = "views"
+
+
+def convert_to_community_post(experiment_data: Dict[str, Any], site: str = 'fmkorea', 
+                            selection_criteria: Optional[SelectionCriteria] = None) -> Dict[str, Any]:
     """
     스크래퍼 결과를 CommunityPost 모델로 변환
     
     Args:
         experiment_data: 스크래퍼에서 수집한 원본 데이터
         site: 커뮤니티 사이트 이름 (기본값: 'fmkorea')
+        selection_criteria: 게시글 선별 기준 (추천수/댓글수/조회수)
     
     Returns:
         CommunityPost 모델 구조의 딕셔너리
@@ -37,6 +48,7 @@ def convert_to_community_post(experiment_data: Dict[str, Any], site: str = 'fmko
             'post_url': experiment_data.get('post_url'),
             'site': site,
             'scraped_at': experiment_data.get('scraped_at', now.isoformat()),
+            'selection_criteria': selection_criteria.value if selection_criteria else None,
             'metadata': {
                 'title': experiment_data.get('metadata', {}).get('title', '제목 없음'),
                 'author': experiment_data.get('metadata', {}).get('author', '익명'),
@@ -86,7 +98,8 @@ def save_community_post(collection, post: Dict[str, Any], site: str = 'fmkorea')
         result = collection.insert_one(post)
         
         if result.inserted_id:
-            logger.info(f"✅ 게시글 저장 성공: {post['post_id']} - {post['metadata']['title'][:30]}...")
+            selection_info = f" ({post.get('selection_criteria', 'N/A')} 기준)" if post.get('selection_criteria') else ""
+            logger.info(f"✅ 게시글 저장 성공: {post['post_id']} - {post['metadata']['title'][:30]}...{selection_info}")
             return True
         else:
             logger.error(f"❌ 게시글 저장 실패: {post['post_id']}")
@@ -111,20 +124,30 @@ def get_community_collection_stats(collection, site: str = 'fmkorea') -> Dict[st
     try:
         total_count = collection.count_documents({'site': site})
         
+        # 선별 기준별 통계
+        criteria_stats = {}
+        for criteria in SelectionCriteria:
+            count = collection.count_documents({
+                'site': site,
+                'selection_criteria': criteria.value
+            })
+            criteria_stats[criteria.value] = count
+        
         # 최근 저장된 게시글
         recent_posts = list(collection.find(
             {'site': site}, 
-            {'post_id': 1, 'metadata.title': 1, 'created_at': 1}
+            {'post_id': 1, 'metadata.title': 1, 'selection_criteria': 1, 'created_at': 1}
         ).sort('created_at', -1).limit(5))
         
         return {
             'total_posts': total_count,
+            'criteria_stats': criteria_stats,
             'recent_posts': recent_posts
         }
         
     except Exception as e:
         logger.error(f"💥 통계 조회 실패: {e}")
-        return {'total_posts': 0, 'recent_posts': []}
+        return {'total_posts': 0, 'criteria_stats': {}, 'recent_posts': []}
 
 
 class CommunityPostManager:
@@ -144,20 +167,22 @@ class CommunityPostManager:
         self.db = self.client[database_name]
         self.collection = self.db[collection_name]
     
-    def convert_and_save(self, experiment_data: Dict[str, Any], site: str = 'fmkorea') -> bool:
+    def convert_and_save(self, experiment_data: Dict[str, Any], site: str = 'fmkorea',
+                        selection_criteria: Optional[SelectionCriteria] = None) -> bool:
         """
         스크래퍼 데이터를 CommunityPost로 변환하고 저장
         
         Args:
             experiment_data: 스크래퍼에서 수집한 원본 데이터
             site: 커뮤니티 사이트 이름
+            selection_criteria: 게시글 선별 기준
         
         Returns:
             저장 성공 여부
         """
         try:
             # 변환
-            community_post = convert_to_community_post(experiment_data, site)
+            community_post = convert_to_community_post(experiment_data, site, selection_criteria)
             
             if not community_post:
                 logger.error("CommunityPost 변환 실패")
@@ -169,6 +194,60 @@ class CommunityPostManager:
         except Exception as e:
             logger.error(f"💥 변환 및 저장 실패: {e}")
             return False
+    
+    def save_selected_posts(self, selected_posts: Dict[str, List[Dict]], site: str = 'fmkorea') -> Dict[str, int]:
+        """
+        선별된 게시글들을 기준별로 저장
+        
+        Args:
+            selected_posts: 기준별 선별된 게시글 딕셔너리
+            site: 커뮤니티 사이트 이름
+        
+        Returns:
+            기준별 저장 성공 개수
+        """
+        try:
+            save_stats = {}
+            
+            for criteria_name, posts in selected_posts.items():
+                saved_count = 0
+                
+                # enum 값으로 변환
+                try:
+                    criteria_enum = SelectionCriteria(criteria_name)
+                except ValueError:
+                    logger.warning(f"⚠️ 알 수 없는 선별 기준: {criteria_name}")
+                    continue
+                
+                for post_data in posts:
+                    # 각 게시글을 상세 스크래핑 후 저장하는 로직은 별도 구현 필요
+                    # 여기서는 기본 정보만 저장
+                    experiment_data = {
+                        'post_id': post_data.get('post_id'),
+                        'post_url': post_data.get('post_url'),
+                        'metadata': {
+                            'title': post_data.get('title', ''),
+                            'author': post_data.get('author', ''),
+                            'date': post_data.get('date', ''),
+                            'view_count': post_data.get('view_count', 0),
+                            'like_count': post_data.get('like_count', 0),
+                            'comment_count': post_data.get('comment_count', 0)
+                        },
+                        'content': [],  # 상세 스크래핑 시 채워짐
+                        'comments': []  # 상세 스크래핑 시 채워짐
+                    }
+                    
+                    if self.convert_and_save(experiment_data, site, criteria_enum):
+                        saved_count += 1
+                
+                save_stats[criteria_name] = saved_count
+                logger.info(f"✅ {criteria_name} 기준 게시글 저장: {saved_count}/{len(posts)}개")
+            
+            return save_stats
+            
+        except Exception as e:
+            logger.error(f"💥 선별된 게시글 저장 실패: {e}")
+            return {}
     
     def get_stats(self, site: str = 'fmkorea') -> Dict[str, Any]:
         """
@@ -183,7 +262,8 @@ class CommunityPostManager:
         return get_community_collection_stats(self.collection, site)
     
     def find_posts(self, site: str = 'fmkorea', limit: int = 10, 
-                   sort_by: str = 'created_at', sort_order: int = -1) -> List[Dict[str, Any]]:
+                   sort_by: str = 'created_at', sort_order: int = -1,
+                   selection_criteria: Optional[SelectionCriteria] = None) -> List[Dict[str, Any]]:
         """
         게시글 조회
         
@@ -192,14 +272,18 @@ class CommunityPostManager:
             limit: 조회할 게시글 수
             sort_by: 정렬 기준 필드
             sort_order: 정렬 순서 (1: 오름차순, -1: 내림차순)
+            selection_criteria: 선별 기준 필터
         
         Returns:
             게시글 목록
         """
         try:
-            posts = list(self.collection.find(
-                {'site': site}
-            ).sort(sort_by, sort_order).limit(limit))
+            query = {'site': site}
+            
+            if selection_criteria:
+                query['selection_criteria'] = selection_criteria.value
+            
+            posts = list(self.collection.find(query).sort(sort_by, sort_order).limit(limit))
             
             return posts
             
