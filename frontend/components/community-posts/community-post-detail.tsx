@@ -4,11 +4,11 @@
 커뮤니티 게시글 상세 렌더링 컴포넌트
 
 주요 기능:
-- CommunityPostDetailRenderer: 스크래핑 데이터 기반 게시글 상세 렌더링 (line 20-80)
-- renderContent: 콘텐츠 순서대로 렌더링 (line 82-150)
-- renderImage: 이미지 콘텐츠 렌더링 (line 152-180)
-- renderText: 텍스트 콘텐츠 렌더링 (line 182-200)
-- renderVideo: 동영상 콘텐츠 렌더링 (line 202-230)
+- CommunityPostDetailRenderer: 스크래핑 데이터 기반 게시글 상세 렌더링 (line 111-653)
+- renderContent: 콘텐츠 순서대로 렌더링 (line 134-157)
+- renderImage: 이미지 콘텐츠 렌더링 (line 157-256)
+- renderText: 텍스트 콘텐츠 렌더링 (line 256-314)
+- renderVideo: 동영상 콘텐츠 렌더링 (line 314-끝)
 
 작성자: AI Assistant
 작성일: 2025-01-28 (업데이트)
@@ -25,8 +25,8 @@ import { ko } from "date-fns/locale";
 import Link from "next/link";
 import Image from "next/image";
 
-// 실험용 데이터 타입 정의
-interface ExperimentalContent {
+// 커뮤니티 게시글 콘텐츠 타입 정의
+interface CommunityPostContent {
   type: 'image' | 'text' | 'video';
   order: number;
   data: {
@@ -65,7 +65,7 @@ interface ExperimentalContent {
   };
 }
 
-interface ExperimentalPostData {
+interface CommunityPostData {
   post_id: string;
   post_url: string;
   scraped_at: string;
@@ -79,7 +79,7 @@ interface ExperimentalPostData {
     dislike_count?: number;
     comment_count?: number;
   };
-  content: ExperimentalContent[];
+  content: CommunityPostContent[];
   comments: Array<{
     comment_id: string;
     author: string;
@@ -99,20 +99,20 @@ interface ExperimentalPostData {
     video_loop?: boolean;
     video_muted?: boolean;
   }>;
-  experiment_purpose: string;
+  experiment_purpose?: string;
 }
 
-interface ExperimentalPostRendererProps {
-  experimentData: ExperimentalPostData;
+interface CommunityPostDetailRendererProps {
+  postData: CommunityPostData;
   showMetadata?: boolean;
   onBack?: () => void;
 }
 
-export function ExperimentalPostRenderer({ 
-  experimentData, 
+export function CommunityPostDetailRenderer({ 
+  postData, 
   showMetadata = true,
   onBack
-}: ExperimentalPostRendererProps) {
+}: CommunityPostDetailRendererProps) {
   
   const formatDate = (dateString: string) => {
     try {
@@ -132,12 +132,12 @@ export function ExperimentalPostRenderer({
 
   // 콘텐츠를 순서대로 렌더링
   const renderContent = () => {
-    if (!experimentData.content || experimentData.content.length === 0) {
+    if (!postData.content || postData.content.length === 0) {
       return <p className="text-muted-foreground">콘텐츠를 찾을 수 없습니다.</p>;
     }
 
     // 순서대로 정렬
-    const sortedContent = [...experimentData.content].sort((a, b) => a.order - b.order);
+    const sortedContent = [...postData.content].sort((a, b) => a.order - b.order);
 
     return sortedContent.map((content) => {
       switch (content.type) {
@@ -154,7 +154,7 @@ export function ExperimentalPostRenderer({
   };
 
   // 이미지 콘텐츠 렌더링 (개선된 버전)
-  const renderImage = (content: ExperimentalContent) => {
+  const renderImage = (content: CommunityPostContent) => {
     const { data } = content;
     
     // 안전한 데이터 접근
@@ -200,44 +200,31 @@ export function ExperimentalPostRenderer({
           // fallback 이미지들 순서대로 시도
           if (fallbackSources.length > 0) {
             const nextSrc = fallbackSources.shift();
-            if (nextSrc && target.src !== nextSrc) {
+            if (nextSrc && nextSrc !== target.src) {
               target.src = nextSrc;
               return;
             }
           }
           
-          console.error('이미지 로드 실패:', imageSrc);
-          // 이미지 로드 실패 시 대체 텍스트 표시
+          // 모든 fallback이 실패하면 기본 이미지로 대체
           target.style.display = 'none';
-          const parent = target.parentElement;
-          if (parent && !parent.querySelector('.image-error')) {
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'image-error p-4 bg-gray-100 rounded-lg text-center text-gray-500 max-w-[600px] mx-auto mb-4';
-            errorDiv.innerHTML = `
-              <div class="text-gray-400 mb-2">📷</div>
-              <div>이미지를 불러올 수 없습니다</div>
-              <div class="text-sm text-gray-400 mt-1">${data.alt || '이미지'}</div>
-            `;
-            parent.appendChild(errorDiv);
-          }
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'text-center text-muted-foreground p-4 border border-dashed rounded';
+          errorDiv.innerHTML = '이미지를 불러올 수 없습니다';
+          target.parentNode?.insertBefore(errorDiv, target);
         }}
       />
     );
 
     // 링크가 있으면 링크로 감싸기
     if (data.href) {
-      let linkHref = data.href;
-      if (linkHref.startsWith('//')) {
-        linkHref = 'https:' + linkHref;
-      }
-      
       return (
-        <div key={`content-${content.order}`} className="mb-6 flex justify-center">
+        <div key={`image-${content.order}`} className="text-center mb-4">
           <a 
-            href={linkHref}
-            target="_blank"
-            rel={data.link_rel || 'noopener noreferrer'}
-            className="block hover:opacity-80 transition-opacity"
+            href={data.href} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className={data.link_class || ''}
           >
             {imageElement}
           </a>
@@ -246,247 +233,153 @@ export function ExperimentalPostRenderer({
     }
 
     return (
-      <div key={`content-${content.order}`} className="mb-6 flex justify-center">
+      <div key={`image-${content.order}`} className="text-center mb-4">
         {imageElement}
       </div>
     );
   };
 
   // 텍스트 콘텐츠 렌더링
-  const renderText = (content: ExperimentalContent) => {
+  const renderText = (content: CommunityPostContent) => {
     const { data } = content;
     
-    // 안전한 데이터 접근
     if (!data || (!data.text && !data.innerHTML)) return null;
-    
-    const textContent = data.text || '';
-    if (textContent.trim().length === 0 && (!data.innerHTML || data.innerHTML.trim().length === 0)) {
-      return null;
-    }
 
-    const Tag = (data.tag || 'p') as keyof JSX.IntrinsicElements;
-    
-    // 스타일 파싱 (텍스트 정렬 등)
+    // 스타일 파싱 함수
     const parseStyle = (styleString: string) => {
-      const styles: any = {};
-      if (styleString) {
-        const declarations = styleString.split(';');
-        declarations.forEach(decl => {
-          const [property, value] = decl.split(':').map(s => s.trim());
-          if (property && value) {
-            // CSS 속성명을 camelCase로 변환
-            const camelProperty = property.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-            styles[camelProperty] = value;
-          }
-        });
-      }
+      const styles: Record<string, string> = {};
+      if (!styleString) return styles;
+
+      styleString.split(';').forEach(rule => {
+        const [property, value] = rule.split(':').map(s => s.trim());
+        if (property && value) {
+          // CSS 속성명을 camelCase로 변환
+          const camelProperty = property.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+          styles[camelProperty] = value;
+        }
+      });
+
       return styles;
     };
 
-    const inlineStyles = parseStyle(data.style || '');
-    
-    // innerHTML이 있으면 dangerouslySetInnerHTML 사용, 없으면 일반 텍스트 사용
-    if (data.innerHTML && data.innerHTML.trim() !== textContent.trim()) {
-      return (
-        <Tag
-          key={`content-${content.order}`}
-          id={data.id || undefined}
-          className={`${data.class || ''} mb-4 leading-relaxed`}
-          style={inlineStyles}
-          dangerouslySetInnerHTML={{ __html: data.innerHTML }}
-        />
-      );
-    } else {
-      return (
-        <Tag
-          key={`content-${content.order}`}
-          id={data.id || undefined}
-          className={`${data.class || ''} mb-4 leading-relaxed`}
-          style={inlineStyles}
-        >
-          {textContent}
-        </Tag>
-      );
-    }
-  };
-
-  // 동영상 콘텐츠 렌더링 (개선된 버전)
-  const renderVideo = (content: ExperimentalContent) => {
-    const { data } = content;
-    
-    // 안전한 데이터 접근
-    if (!data || !data.src) return null;
-
-    // URL 정규화 (//로 시작하는 URL을 https://로 변환)
-    let videoSrc = data.src;
-    if (videoSrc.startsWith('//')) {
-      videoSrc = 'https:' + videoSrc;
-    }
-
-    let posterSrc = data.poster;
-    if (posterSrc && posterSrc.startsWith('//')) {
-      posterSrc = 'https:' + posterSrc;
-    }
-
-    // 자동재생 및 음소거 설정 개선
-    const shouldAutoPlay = data.autoplay === true;
-    const shouldMute = data.muted === true || shouldAutoPlay; // 자동재생 시 반드시 음소거
+    const textContent = data.innerHTML || data.text || '';
+    const Tag = (data.tag as keyof JSX.IntrinsicElements) || 'p';
+    const style = data.style ? parseStyle(data.style) : {};
 
     return (
-      <div key={`content-${content.order}`} className="mb-6 flex justify-center">
+      <Tag
+        key={`text-${content.order}`}
+        id={data.id}
+        className={`${data.class || ''} mb-4`}
+        style={style}
+        dangerouslySetInnerHTML={{ __html: textContent }}
+      />
+    );
+  };
+
+  // 동영상 콘텐츠 렌더링
+  const renderVideo = (content: CommunityPostContent) => {
+    const { data } = content;
+    
+    if (!data || !data.src) return null;
+
+    return (
+      <div key={`video-${content.order}`} className="text-center mb-4">
         <video
-          src={videoSrc}
-          poster={posterSrc || undefined}
-          autoPlay={shouldAutoPlay}
+          src={data.src}
+          poster={data.poster}
+          autoPlay={data.autoplay || false}
           loop={data.loop || false}
-          muted={shouldMute}
-          controls={data.controls !== false} // 기본값은 true
-          playsInline={true} // 모바일에서 인라인 재생
-          preload={data.preload || "metadata"} // 메타데이터만 미리 로드
-          className={`${data.class || ''} rounded-lg shadow-lg block mx-auto`}
+          muted={data.muted || true}
+          controls={data.controls !== false}
+          preload={data.preload || 'metadata'}
           style={{ 
-            maxWidth: '600px', // 이미지와 동일한 크기로 조정
-            width: '100%', 
+            width: '100%',
+            maxWidth: '600px',
             height: 'auto',
             borderRadius: '8px',
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
           }}
-          onLoadStart={() => {
-            // 자동재생이 설정되어 있으면 강제로 재생 시도
-            if (shouldAutoPlay) {
-              const video = document.querySelector(`video[src="${videoSrc}"]`) as HTMLVideoElement;
-              if (video) {
-                video.play().catch(error => {
-                  console.warn('자동재생 실패 (브라우저 정책):', error);
-                  // 자동재생 실패 시 사용자에게 알림
-                  const parent = video.parentElement;
-                  if (parent && !parent.querySelector('.autoplay-notice')) {
-                    const notice = document.createElement('div');
-                    notice.className = 'autoplay-notice absolute top-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded';
-                    notice.textContent = '클릭하여 재생';
-                    notice.style.position = 'absolute';
-                    notice.style.top = '8px';
-                    notice.style.left = '8px';
-                    parent.style.position = 'relative';
-                    parent.appendChild(notice);
-                    
-                    // 클릭 시 알림 제거
-                    video.addEventListener('play', () => {
-                      notice.remove();
-                    }, { once: true });
-                  }
-                });
-              }
-            }
-          }}
-          onError={(e) => {
-            console.error('동영상 로드 실패:', videoSrc);
-            const target = e.target as HTMLVideoElement;
-            const parent = target.parentElement;
-            if (parent && !parent.querySelector('.video-error')) {
-              const errorDiv = document.createElement('div');
-              errorDiv.className = 'video-error p-4 bg-gray-100 rounded-lg text-center text-gray-500 max-w-[600px] mx-auto mb-4';
-              errorDiv.innerHTML = `
-                <div class="text-gray-400 mb-2">🎬</div>
-                <div>동영상을 불러올 수 없습니다</div>
-                <div class="text-sm text-gray-400 mt-1">동영상 형식이 지원되지 않거나 파일에 문제가 있습니다</div>
-              `;
-              parent.appendChild(errorDiv);
-              target.style.display = 'none';
-            }
-          }}
+          className="mx-auto"
+          playsInline
         />
       </div>
     );
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* 실험 정보 배너 */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex items-center gap-2 mb-2">
-          <Badge variant="outline" className="bg-blue-100 text-blue-800">
-            🧪 실험 모드
-          </Badge>
-          <span className="text-sm text-blue-700">
-            스크래핑 데이터 기반 게시글 재현
-          </span>
-        </div>
-        <div className="text-xs text-blue-600">
-          <p>스크래핑 시간: {formatDate(experimentData.scraped_at)}</p>
-          <p>원본 URL: <a href={experimentData.post_url} target="_blank" rel="noopener noreferrer" className="underline">{experimentData.post_url}</a></p>
-        </div>
-      </div>
-
+    <div className="max-w-4xl mx-auto p-4">
       {/* 뒤로가기 버튼 */}
       {onBack && (
-        <div className="mb-6">
-          <Button variant="ghost" size="sm" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            뒤로가기
-          </Button>
-        </div>
+        <Button 
+          variant="outline" 
+          onClick={onBack}
+          className="mb-4"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          목록으로 돌아가기
+        </Button>
       )}
 
-      {/* 게시글 메타데이터 */}
-      {showMetadata && experimentData.metadata && (
+      {/* 메타데이터 */}
+      {showMetadata && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-2xl leading-tight break-words mb-4">
-              {experimentData.metadata.title || `게시글 #${experimentData.post_id}`}
-            </CardTitle>
-            
-            <div className="space-y-3">
-              {/* 작성자와 작성시간 */}
-              <div className="flex items-center gap-2 text-sm">
-                <span className="font-medium text-foreground">
-                  {experimentData.metadata.author || '익명'}
-                </span>
-                <span className="text-muted-foreground">•</span>
-                <span className="text-muted-foreground">
-                  {experimentData.metadata.date || '날짜 정보 없음'}
-                </span>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <CardTitle className="text-xl mb-2">
+                  {postData.metadata?.title || `게시글 #${postData.post_id}`}
+                </CardTitle>
+                
+                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                  <span>작성자: {postData.metadata?.author || '정보 없음'}</span>
+                  {postData.metadata?.date && (
+                    <span>작성일: {postData.metadata.date}</span>
+                  )}
+                  {postData.metadata?.category && (
+                    <Badge variant="secondary">{postData.metadata.category}</Badge>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4 text-sm">
+                  {postData.metadata?.view_count !== undefined && (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Eye className="h-4 w-4" />
+                      조회수 {postData.metadata.view_count.toLocaleString()}
+                    </span>
+                  )}
+                  {postData.metadata?.like_count !== undefined && (
+                    <span className="flex items-center gap-1 text-green-600">
+                      <Heart className="h-4 w-4" />
+                      추천 {postData.metadata.like_count.toLocaleString()}
+                    </span>
+                  )}
+                  {postData.metadata?.dislike_count !== undefined && postData.metadata.dislike_count > 0 && (
+                    <span className="flex items-center gap-1 text-red-600">
+                      👎 비추천 {postData.metadata.dislike_count.toLocaleString()}
+                    </span>
+                  )}
+                  {postData.metadata?.comment_count !== undefined && (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <MessageCircle className="h-4 w-4" />
+                      댓글 {postData.metadata.comment_count.toLocaleString()}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* 통계 정보 */}
-              <div className="flex items-center gap-6 text-sm">
-                {experimentData.metadata.view_count !== undefined && (
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Eye className="h-4 w-4" />
-                    조회수 {experimentData.metadata.view_count.toLocaleString()}
-                  </span>
-                )}
-                {experimentData.metadata.like_count !== undefined && (
-                  <span className="flex items-center gap-1 text-green-600">
-                    <Heart className="h-4 w-4" />
-                    추천 {experimentData.metadata.like_count.toLocaleString()}
-                  </span>
-                )}
-                {experimentData.metadata.dislike_count !== undefined && experimentData.metadata.dislike_count > 0 && (
-                  <span className="flex items-center gap-1 text-red-600">
-                    👎 비추천 {experimentData.metadata.dislike_count.toLocaleString()}
-                  </span>
-                )}
-                {experimentData.metadata.comment_count !== undefined && (
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <MessageCircle className="h-4 w-4" />
-                    댓글 {experimentData.metadata.comment_count.toLocaleString()}
-                  </span>
-                )}
+              {/* 원본 링크 */}
+              <div className="mt-4">
+                <a
+                  href={postData.post_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  원본 보기
+                </a>
               </div>
-            </div>
-
-            {/* 원본 링크 */}
-            <div className="mt-4">
-              <a
-                href={experimentData.post_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
-              >
-                <ExternalLink className="h-4 w-4" />
-                원본 보기
-              </a>
             </div>
           </CardHeader>
         </Card>
@@ -502,15 +395,15 @@ export function ExperimentalPostRenderer({
       </Card>
 
       {/* 댓글 */}
-      {experimentData.comments && experimentData.comments.length > 0 && (
+      {postData.comments && postData.comments.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">
-              댓글 {experimentData.comments.length}개
+              댓글 {postData.comments.length}개
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {experimentData.comments.map((comment, index) => {
+            {postData.comments.map((comment, index) => {
               const level = comment.level || 0;
               const marginLeft = level * 20; // 레벨당 20px 들여쓰기
               
@@ -541,8 +434,6 @@ export function ExperimentalPostRenderer({
                             BEST
                           </span>
                         )}
-                        
-                        {/* 작성자 표시 제거 (일관성을 위해) */}
                         
                         {/* 부모 댓글 정보 */}
                         {comment.is_reply && comment.parent_comment && (
