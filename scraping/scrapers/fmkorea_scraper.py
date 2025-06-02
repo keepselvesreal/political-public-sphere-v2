@@ -583,15 +583,15 @@ class FMKoreaScraper:
                     stat_elements = await self.page.query_selector_all(selector)
                     for element in stat_elements:
                         text = await element.inner_text()
-                        if '조회 수' in text:
+                        if '조회 수' in text or '조회수' in text:
                             numbers = re.findall(r'\d+', text)
                             if numbers:
                                 view_count = int(numbers[-1])
-                        elif '추천 수' in text:
+                        elif '추천 수' in text or '추천수' in text or '추천' in text:
                             numbers = re.findall(r'\d+', text)
                             if numbers:
                                 like_count = int(numbers[-1])
-                        elif '비추천' in text:
+                        elif '비추천' in text or '반대' in text or '싫어요' in text:
                             numbers = re.findall(r'\d+', text)
                             if numbers:
                                 dislike_count = int(numbers[-1])
@@ -603,6 +603,32 @@ class FMKoreaScraper:
                 except:
                     continue
             
+            # 추가적인 비추천수 추출 시도
+            if dislike_count == 0:
+                try:
+                    # 더 구체적인 비추천 셀렉터들
+                    dislike_selectors = [
+                        '.vote_down .count',
+                        '.blame_count',
+                        '.dislike_count',
+                        '[class*="blame"]',
+                        '[class*="dislike"]',
+                        '.voted_count.down',
+                        '.vote_btn.down .count'
+                    ]
+                    
+                    for selector in dislike_selectors:
+                        dislike_element = await self.page.query_selector(selector)
+                        if dislike_element:
+                            dislike_text = await dislike_element.inner_text()
+                            numbers = re.findall(r'\d+', dislike_text)
+                            if numbers:
+                                dislike_count = int(numbers[0])
+                                logger.info(f"비추천수 추출 성공 ({selector}): {dislike_count}")
+                                break
+                except Exception as e:
+                    logger.warning(f"추가 비추천수 추출 실패: {e}")
+            
             metadata.update({
                 'view_count': view_count,
                 'like_count': like_count,
@@ -610,7 +636,7 @@ class FMKoreaScraper:
                 'comment_count': comment_count
             })
             
-            logger.info(f"✅ 메타데이터 추출 완료: 조회수 {view_count}, 추천 {like_count}, 댓글 {comment_count}")
+            logger.info(f"✅ 메타데이터 추출 완료: 조회수 {view_count}, 추천 {like_count}, 비추천 {dislike_count}, 댓글 {comment_count}")
             return metadata
             
         except Exception as e:
@@ -689,6 +715,44 @@ class FMKoreaScraper:
                     depth = margin_percent // 2  # 2% = depth 1, 4% = depth 2, 6% = depth 3
                     is_reply = depth > 0
             
+            # 베스트 댓글 감지 (개선된 로직)
+            is_best = False
+            try:
+                # 베스트 댓글 표시 요소들 확인
+                best_indicators = [
+                    '.best_comment',  # 베스트 댓글 클래스
+                    '.comment_best',  # 베스트 댓글 클래스
+                    '[class*="best"]',  # best가 포함된 클래스
+                    '.ico_best',  # 베스트 아이콘
+                    '.best_ico',  # 베스트 아이콘
+                    '.comment-best',  # 베스트 댓글
+                    '.fdb_best'  # FM코리아 베스트 댓글
+                ]
+                
+                for selector in best_indicators:
+                    best_element = await comment_element.query_selector(selector)
+                    if best_element:
+                        is_best = True
+                        logger.info(f"베스트 댓글 감지: {selector}")
+                        break
+                
+                # 텍스트로도 베스트 댓글 감지
+                if not is_best:
+                    comment_html = await comment_element.inner_html()
+                    if any(keyword in comment_html.lower() for keyword in ['best', '베스트', 'best_comment']):
+                        is_best = True
+                        logger.info("텍스트로 베스트 댓글 감지")
+                
+                # 클래스명으로도 베스트 댓글 감지
+                if not is_best:
+                    class_name = await comment_element.get_attribute('class') or ''
+                    if 'best' in class_name.lower():
+                        is_best = True
+                        logger.info(f"클래스명으로 베스트 댓글 감지: {class_name}")
+                        
+            except Exception as e:
+                logger.warning(f"베스트 댓글 감지 실패: {e}")
+            
             # 작성자 추출 (실제 구조: .member_plate)
             author = '익명'
             try:
@@ -731,26 +795,69 @@ class FMKoreaScraper:
             except:
                 pass
             
-            # 추천/비추천 수 추출 (실제 구조: .vote .voted_count, .blamed_count)
+            # 추천/비추천 수 추출 (개선된 로직)
             like_count = 0
             dislike_count = 0
             
             try:
-                # 추천수
-                voted_element = await comment_element.query_selector('.voted_count')
-                if voted_element:
-                    voted_text = await voted_element.inner_text()
-                    if voted_text and voted_text.strip().isdigit():
-                        like_count = int(voted_text.strip())
+                # 추천수 - 더 다양한 셀렉터 시도
+                voted_selectors = [
+                    '.voted_count',
+                    '.vote_up .count',
+                    '.like_count',
+                    '.recommend_count',
+                    '[class*="voted"]',
+                    '[class*="like"]'
+                ]
                 
-                # 비추천수
-                blamed_element = await comment_element.query_selector('.blamed_count')
-                if blamed_element:
-                    blamed_text = await blamed_element.inner_text()
-                    if blamed_text and blamed_text.strip().isdigit():
-                        dislike_count = int(blamed_text.strip())
-            except:
-                pass
+                for selector in voted_selectors:
+                    voted_element = await comment_element.query_selector(selector)
+                    if voted_element:
+                        voted_text = await voted_element.inner_text()
+                        if voted_text and voted_text.strip().isdigit():
+                            like_count = int(voted_text.strip())
+                            break
+                
+                # 비추천수 - 더 다양한 셀렉터 시도
+                blamed_selectors = [
+                    '.blamed_count',
+                    '.vote_down .count',
+                    '.dislike_count',
+                    '.blame_count',
+                    '[class*="blamed"]',
+                    '[class*="dislike"]',
+                    '[class*="down"]'
+                ]
+                
+                for selector in blamed_selectors:
+                    blamed_element = await comment_element.query_selector(selector)
+                    if blamed_element:
+                        blamed_text = await blamed_element.inner_text()
+                        if blamed_text and blamed_text.strip().isdigit():
+                            dislike_count = int(blamed_text.strip())
+                            break
+                
+                # 추천/비추천 버튼에서 숫자 추출 시도
+                if like_count == 0 or dislike_count == 0:
+                    vote_buttons = await comment_element.query_selector_all('.vote_btn, .btn_vote, [class*="vote"]')
+                    for button in vote_buttons:
+                        button_text = await button.inner_text()
+                        button_class = await button.get_attribute('class') or ''
+                        
+                        # 추천 버튼
+                        if any(keyword in button_class.lower() for keyword in ['up', 'like', 'recommend']) and like_count == 0:
+                            numbers = re.findall(r'\d+', button_text)
+                            if numbers:
+                                like_count = int(numbers[0])
+                        
+                        # 비추천 버튼
+                        elif any(keyword in button_class.lower() for keyword in ['down', 'dislike', 'blame']) and dislike_count == 0:
+                            numbers = re.findall(r'\d+', button_text)
+                            if numbers:
+                                dislike_count = int(numbers[0])
+                
+            except Exception as e:
+                logger.warning(f"추천/비추천 수 추출 실패: {e}")
             
             # 부모 댓글 정보 추출 (대댓글인 경우)
             parent_comment = ''
@@ -775,9 +882,13 @@ class FMKoreaScraper:
                 'is_reply': is_reply,
                 'depth': depth,
                 'parent_id': parent_comment,
-                'is_best': False,  # FM코리아는 베스트 댓글 시스템이 다름
+                'is_best': is_best,  # 개선된 베스트 댓글 감지
                 'is_author': False  # 작성자 댓글 구분 로직 추가 가능
             }
+            
+            # 베스트 댓글 로깅
+            if is_best:
+                logger.info(f"✨ 베스트 댓글 발견: {author} - {content[:30]}...")
             
             # 이미지나 비디오가 있는 댓글 처리
             try:

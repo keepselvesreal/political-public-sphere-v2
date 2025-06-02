@@ -12,7 +12,6 @@ CommunityPost 모델로 직접 스크래핑 및 저장 (Playwright 버전)
 """
 
 import asyncio
-import pymongo
 from datetime import datetime
 from typing import Dict, List, Any, Optional
 from loguru import logger
@@ -23,6 +22,9 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'scraping', 'scrapers'))
 from fmkorea_scraper import FMKoreaScraper
 
+# 유틸리티 함수 import
+from community_post_utils import CommunityPostManager, convert_to_community_post
+
 from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 
@@ -31,9 +33,9 @@ class CommunityPostPlaywrightScraper:
     """Playwright 기반 CommunityPost 스크래퍼"""
     
     def __init__(self, mongodb_uri: str):
-        self.client = pymongo.MongoClient(mongodb_uri)
-        self.db = self.client.political_public_sphere
-        self.collection = self.db.community_posts
+        # CommunityPostManager 사용
+        self.post_manager = CommunityPostManager(mongodb_uri)
+        self.collection = self.post_manager.collection
         
         # 정식 스크래퍼 설정 적용
         self.base_url = "https://www.fmkorea.com"
@@ -146,8 +148,8 @@ class CommunityPostPlaywrightScraper:
                 experiment_data = await scraper.scrape_post_detail(post_url)
                 
                 if experiment_data and 'error' not in experiment_data:
-                    # CommunityPost 모델 구조로 변환
-                    community_post = self.convert_to_community_post(experiment_data)
+                    # CommunityPost 모델 구조로 변환 (유틸리티 함수 사용)
+                    community_post = convert_to_community_post(experiment_data, 'fmkorea')
                     return community_post
                 else:
                     logger.warning(f"정식 스크래퍼 실패: {experiment_data.get('error', '알 수 없는 오류')}")
@@ -157,63 +159,9 @@ class CommunityPostPlaywrightScraper:
             logger.error(f"💥 정식 스크래퍼 사용 실패: {e}")
             return None
     
-    def convert_to_community_post(self, experiment_data: Dict[str, Any]) -> Dict[str, Any]:
-        """정식 스크래퍼 결과를 CommunityPost 모델로 변환"""
-        try:
-            now = datetime.now()
-            
-            community_post = {
-                'post_id': experiment_data.get('post_id'),
-                'post_url': experiment_data.get('post_url'),
-                'site': 'fmkorea',
-                'scraped_at': experiment_data.get('scraped_at', now.isoformat()),
-                'metadata': {
-                    'title': experiment_data.get('metadata', {}).get('title', '제목 없음'),
-                    'author': experiment_data.get('metadata', {}).get('author', '익명'),
-                    'date': experiment_data.get('metadata', {}).get('date', now.isoformat()),
-                    'view_count': experiment_data.get('metadata', {}).get('view_count', 0),
-                    'like_count': experiment_data.get('metadata', {}).get('like_count', 0),
-                    'dislike_count': experiment_data.get('metadata', {}).get('dislike_count', 0),
-                    'comment_count': experiment_data.get('metadata', {}).get('comment_count', 0)
-                },
-                'content': experiment_data.get('content', []),
-                'comments': experiment_data.get('comments', []),
-                'created_at': now,
-                'updated_at': now
-            }
-            
-            return community_post
-            
-        except Exception as e:
-            logger.error(f"💥 CommunityPost 변환 실패: {e}")
-            return {}
-    
     async def save_post(self, post: Dict[str, Any]) -> bool:
-        """게시글 저장"""
-        try:
-            # 중복 확인
-            existing = self.collection.find_one({
-                'site': 'fmkorea',
-                'post_id': post['post_id']
-            })
-            
-            if existing:
-                logger.debug(f"이미 존재하는 게시글: {post['post_id']}")
-                return False
-            
-            # 저장
-            result = self.collection.insert_one(post)
-            
-            if result.inserted_id:
-                logger.info(f"✅ 게시글 저장 성공: {post['post_id']} - {post['metadata']['title'][:30]}...")
-                return True
-            else:
-                logger.error(f"❌ 게시글 저장 실패: {post['post_id']}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"💥 게시글 저장 중 오류: {e}")
-            return False
+        """게시글 저장 (유틸리티 함수 사용)"""
+        return self.post_manager.convert_and_save(post, 'fmkorea')
     
     async def scrape_and_save(self, max_posts: int = 5) -> Dict[str, int]:
         """스크래핑 및 저장 실행"""
@@ -247,8 +195,8 @@ class CommunityPostPlaywrightScraper:
                     if community_post:
                         stats['total_scraped'] += 1
                         
-                        # 저장
-                        if await self.save_post(community_post):
+                        # 저장 (유틸리티 함수 사용)
+                        if self.post_manager.convert_and_save(community_post, 'fmkorea'):
                             stats['total_saved'] += 1
                     else:
                         stats['errors'] += 1
@@ -271,28 +219,12 @@ class CommunityPostPlaywrightScraper:
             raise
     
     def get_collection_stats(self) -> Dict[str, int]:
-        """저장된 데이터 통계"""
-        try:
-            total_count = self.collection.count_documents({'site': 'fmkorea'})
-            
-            # 최근 저장된 게시글
-            recent_posts = list(self.collection.find(
-                {'site': 'fmkorea'}, 
-                {'post_id': 1, 'metadata.title': 1, 'created_at': 1}
-            ).sort('created_at', -1).limit(5))
-            
-            return {
-                'total_posts': total_count,
-                'recent_posts': recent_posts
-            }
-            
-        except Exception as e:
-            logger.error(f"💥 통계 조회 실패: {e}")
-            return {'total_posts': 0, 'recent_posts': []}
+        """저장된 데이터 통계 (유틸리티 함수 사용)"""
+        return self.post_manager.get_stats('fmkorea')
     
     def close(self):
         """연결 종료"""
-        self.client.close()
+        self.post_manager.close()
 
 
 async def main():

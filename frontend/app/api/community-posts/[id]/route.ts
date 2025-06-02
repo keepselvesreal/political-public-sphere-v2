@@ -184,7 +184,7 @@ export async function GET(
           category: '정치',
           view_count: post.metadata?.view_count || generateMetric(post.post_id, 100, 2000),
           like_count: post.metadata?.like_count || generateMetric(post.post_id + '1', 10, 300),
-          dislike_count: post.metadata?.dislike_count || generateMetric(post.post_id + '2', 1, 50),
+          dislike_count: post.metadata?.dislike_count || 0,  // 실제 데이터 우선 사용
           comment_count: post.comments?.length || post.metadata?.comment_count || 0
         },
         

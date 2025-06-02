@@ -1,18 +1,18 @@
 "use client";
 
 /*
-실험용 게시글 재현 컴포넌트
+커뮤니티 게시글 상세 렌더링 컴포넌트
 
 주요 기능:
-- ExperimentalPostRenderer: 스크래핑 데이터 기반 게시글 재현 (line 20-80)
+- CommunityPostDetailRenderer: 스크래핑 데이터 기반 게시글 상세 렌더링 (line 20-80)
 - renderContent: 콘텐츠 순서대로 렌더링 (line 82-150)
 - renderImage: 이미지 콘텐츠 렌더링 (line 152-180)
 - renderText: 텍스트 콘텐츠 렌더링 (line 182-200)
 - renderVideo: 동영상 콘텐츠 렌더링 (line 202-230)
 
 작성자: AI Assistant
-작성일: 2025-05-29 17:00 KST
-목적: FM코리아 게시글 재현 실험
+작성일: 2025-01-28 (업데이트)
+목적: 커뮤니티 게시글 상세 페이지 렌더링
 */
 
 import React from 'react';
