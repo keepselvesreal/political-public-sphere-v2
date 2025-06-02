@@ -59,12 +59,12 @@ const CommunityPost = mongoose.models.CommunityPost || mongoose.model('Community
 // GET 요청 핸들러 - 개별 게시글 조회
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
     
-    const { id } = params;
+    const { id } = await params;
     
     console.log('개별 게시글 조회 요청:', id);
     
