@@ -1,6 +1,6 @@
 /*
 목차:
-- Post Detail Page (게시글 상세 페이지)
+- Post Detail Page (분석 대회 게시글 상세 페이지)
 - SSR 지원 및 동적 라우팅
 - 투표 및 댓글 시스템 통합
 - i18n 다국어 지원
@@ -100,7 +100,7 @@ const transformApiPostToDetailProps = (apiPost: ApiPost) => {
 };
 
 // 서버 컴포넌트 - async 함수 사용 가능
-export default async function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AnalysisPostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   // Next.js 15에서는 params를 await로 처리해야 함
   const { id } = await params;
   
@@ -146,4 +146,4 @@ export default async function PostDetailPage({ params }: { params: Promise<{ id:
   
   const post = transformApiPostToDetailProps(mockPost);
   return <PostDetailContent post={post} />;
-}
+} 

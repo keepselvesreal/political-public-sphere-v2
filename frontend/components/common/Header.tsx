@@ -38,7 +38,7 @@ export default function Header() {
     if (session?.user) {
       return (
         <div className="flex items-center space-x-2">
-          <Link href="/write">
+          <Link href="/analysis-contest/write">
             <Button variant="outline" size="sm" className="flex items-center space-x-1">
               <PenTool className="h-4 w-4" />
               <span>글쓰기</span>

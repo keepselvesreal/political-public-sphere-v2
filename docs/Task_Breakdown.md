@@ -224,11 +224,123 @@
   - Add Google Analytics to `/app/layout.tsx`.
   - Set up Sentry in `/lib/sentry.ts` for error monitoring.
 
+#### 10. Atlas 에펨코리아 데이터 활용 및 게시글 재현
+**추가 날짜**: 2025년 01월 28일 15시 30분 (KST)
+
+### 목표
+- MongoDB Atlas에 저장된 에펨코리아 스크래핑 데이터를 활용하여 실제 커뮤니티 게시글을 재현
+- 기존 Mock 데이터를 실제 데이터로 대체하여 현실적인 사용자 경험 제공
+- 스크래핑 데이터의 구조를 분석하여 최적화된 데이터 모델 설계
+
+### 세부 작업
+
+#### 10-1. 데이터 구조 분석 및 모델 설계
+- **Tasks**:
+  - **스크래핑 데이터 분석**:
+    - Atlas에 저장된 에펨코리아 데이터 스키마 분석
+    - 필드 구조 파악: `post_id`, `title`, `author`, `created_at`, `views`, `likes`, `dislikes`, `comments_count`, `url`, `category`, `content` 등
+    - 데이터 품질 검증 및 누락 필드 확인
+  - **CommunityPost 모델 정의**:
+    - `/lib/models/CommunityPost.ts` 생성
+    - 스크래핑 데이터 구조에 맞는 스키마 설계
+    - 인덱스 최적화: `created_at`, `likes`, `views`, `community`, `category`
+    - 검색 최적화를 위한 텍스트 인덱스 추가
+
+#### 10-2. API 엔드포인트 구현
+- **Tasks**:
+  - **커뮤니티 게시글 목록 API**:
+    - `/app/api/community-posts/route.ts` 구현
+    - GET: 페이지네이션, 정렬, 필터링 지원
+    - 쿼리 파라미터: `skip`, `limit`, `sortBy`, `order`, `category`, `community`
+    - 응답 형식: `{ success: boolean, data: CommunityPost[], total: number }`
+  - **개별 게시글 조회 API**:
+    - `/app/api/community-posts/[id]/route.ts` 구현
+    - GET: 게시글 상세 정보 조회 및 조회수 증가
+    - 404 처리 및 에러 핸들링
+  - **검색 API**:
+    - `/app/api/community-posts/search/route.ts` 구현
+    - 제목, 내용, 작성자 기반 텍스트 검색
+    - MongoDB 텍스트 인덱스 활용
+
+#### 10-3. 프론트엔드 통합
+- **Tasks**:
+  - **게시글 목록 페이지 업데이트**:
+    - `/app/community-posts/page.tsx` 수정
+    - Mock 데이터 제거하고 실제 API 연동
+    - 무한 스크롤 구현 (`useSWRInfinite` 활용)
+    - 정렬 및 필터링 기능 추가
+  - **게시글 상세 페이지 개선**:
+    - `/app/community-posts/posts/[id]/page.tsx` 수정
+    - 실제 데이터 기반 렌더링
+    - 원본 게시글 링크 제공
+    - 메타데이터 표시 개선 (조회수, 추천수, 댓글수)
+  - **검색 기능 구현**:
+    - 검색 컴포넌트 추가
+    - 실시간 검색 결과 표시
+    - 검색 히스토리 및 인기 검색어
+
+#### 10-4. 데이터 마이그레이션 및 최적화
+- **Tasks**:
+  - **데이터 정제 스크립트**:
+    - 중복 데이터 제거
+    - 누락된 필드 보완
+    - 데이터 타입 정규화
+  - **성능 최적화**:
+    - 적절한 인덱스 생성
+    - 쿼리 성능 모니터링
+    - 캐싱 전략 수립
+  - **데이터 백업 및 복구**:
+    - 정기적인 데이터 백업 설정
+    - 데이터 무결성 검증
+
+#### 10-5. 사용자 경험 개선
+- **Tasks**:
+  - **로딩 상태 최적화**:
+    - 스켈레톤 UI 구현
+    - 점진적 로딩 (Progressive Loading)
+    - 에러 상태 처리 개선
+  - **반응형 디자인**:
+    - 모바일 최적화
+    - 터치 인터페이스 지원
+    - 다크 모드 지원
+  - **접근성 개선**:
+    - ARIA 라벨 추가
+    - 키보드 네비게이션 지원
+    - 스크린 리더 호환성
+
+#### 10-6. 모니터링 및 분석
+- **Tasks**:
+  - **사용자 행동 분석**:
+    - 게시글 조회 패턴 분석
+    - 인기 카테고리 및 키워드 추적
+    - 사용자 참여도 메트릭
+  - **성능 모니터링**:
+    - API 응답 시간 측정
+    - 데이터베이스 쿼리 성능 분석
+    - 에러 로그 수집 및 분석
+  - **A/B 테스트**:
+    - UI/UX 개선 실험
+    - 기능별 사용률 비교
+    - 사용자 피드백 수집
+
+### 기술적 고려사항
+- **데이터 일관성**: 스크래핑 데이터의 품질 관리 및 정규화
+- **확장성**: 대용량 데이터 처리를 위한 아키텍처 설계
+- **보안**: 사용자 데이터 보호 및 API 보안 강화
+- **성능**: 효율적인 쿼리 및 캐싱 전략
+- **유지보수성**: 코드 품질 및 문서화
+
+### TDD 테스트 전략
+- **단위 테스트**: API 엔드포인트 및 데이터 모델 테스트
+- **통합 테스트**: 프론트엔드-백엔드 연동 테스트
+- **E2E 테스트**: 사용자 시나리오 기반 테스트
+- **성능 테스트**: 대용량 데이터 처리 성능 검증
+
 ---
 
 ### Notes for AI IDE
-- **Code Generation**: Generate components (e.g., `<PostCard />`, `<TextEditor />`) and APIs with error handling and A11y/i18n support.
-- **Validation**: Ensure mandatory fields are validated in `<PostForm />`.
-- **Performance**: Use `lean()` for MongoDB queries, `React.memo` for components, and `useSWRInfinite` for infinite scroll.
-- **Testing**: Include Jest and Playwright test templates.
-- **Prompt Example**: "Generate a PostCard component with Tailwind CSS, React.memo, ARIA labels, and i18n support for displaying election post previews."
+- **Data Integration**: Atlas 데이터 구조에 맞는 API 및 컴포넌트 생성
+- **Performance**: 대용량 데이터 처리를 위한 최적화된 쿼리 및 인덱싱
+- **User Experience**: 실제 데이터 기반의 현실적인 UI/UX 구현
+- **Testing**: 실제 데이터를 활용한 테스트 케이스 작성
+- **Prompt Example**: "Generate a CommunityPost API endpoint that fetches paginated data from MongoDB Atlas with sorting and filtering capabilities."

@@ -8,119 +8,156 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle } from 'lucide-react';
-import { CommunityPostList } from '@/components/community-posts/community-post-list';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Loader2, AlertCircle, Search, Eye, ThumbsUp, MessageSquare, Calendar, User, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import useSWRInfinite from 'swr/infinite';
 
-interface CommunityData {
-  likesPerView: any[];
-  commentsPerView: any[];
-  viewsPerHour: any[];
+// 커뮤니티 게시글 타입 정의
+interface CommunityPost {
+  _id: string;
+  post_id: string;
+  community: string;
+  site: string;
+  title: string;
+  author: string;
+  created_at: string;
+  views: number;
+  likes: number;
+  dislikes: number;
+  comments_count: number;
+  url?: string;
+  category: string;
+  likes_per_view?: number;
+  comments_per_view?: number;
 }
 
+// API 응답 타입
+interface ApiResponse {
+  success: boolean;
+  data: CommunityPost[];
+  pagination: {
+    total: number;
+    skip: number;
+    limit: number;
+    hasMore: boolean;
+    currentPage: number;
+    totalPages: number;
+  };
+  filters: {
+    sortBy: string;
+    order: string;
+    category?: string;
+    community?: string;
+    site: string;
+    search?: string;
+  };
+}
+
+// 데이터 fetcher 함수
+const fetcher = async (url: string): Promise<ApiResponse> => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  return response.json();
+};
+
 export default function CommunityPosts() {
-  const [communityData, setCommunityData] = useState<CommunityData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dataInitialized, setDataInitialized] = useState(false);
+  // 상태 관리
+  const [sortBy, setSortBy] = useState('created_at');
+  const [order, setOrder] = useState('desc');
+  const [category, setCategory] = useState('all');
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
 
-  // 더미 데이터 생성 함수
-  const createDummyData = async () => {
-    try {
-      console.log('더미 데이터 생성 시작...');
-      const response = await fetch('/api/community-posts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'create_dummy_data' }),
-      });
+  // API 키 생성 함수
+  const getKey = (pageIndex: number, previousPageData: ApiResponse | null) => {
+    // 마지막 페이지에 도달했으면 null 반환
+    if (previousPageData && !previousPageData.pagination.hasMore) return null;
+    
+    const skip = pageIndex * 10;
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: '10',
+      sortBy,
+      order,
+      site: 'fmkorea'
+    });
 
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('더미 데이터 생성 성공:', result.message);
-        setDataInitialized(true);
-        return true;
-      } else {
-        console.error('더미 데이터 생성 실패:', result.error);
-        return false;
-      }
-    } catch (error) {
-      console.error('더미 데이터 생성 중 오류:', error);
-      return false;
-    }
+    if (category !== 'all') params.append('category', category);
+    if (search) params.append('search', search);
+
+    return `/api/community-posts?${params.toString()}`;
   };
 
-  // 커뮤니티 데이터 로딩 함수
-  const loadCommunityData = async () => {
-    try {
-      console.log('커뮤니티 데이터 로딩 시작...');
-      const response = await fetch('/api/community-posts?metric=all&limit=10');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        console.log('커뮤니티 데이터 로딩 성공:', result.data);
-        setCommunityData(result.data);
-        setError(null);
-      } else {
-        throw new Error(result.error || '데이터 로딩 실패');
-      }
-    } catch (error) {
-      console.error('커뮤니티 데이터 로딩 실패:', error);
-      setError(error instanceof Error ? error.message : '알 수 없는 오류');
-    } finally {
-      setLoading(false);
-    }
+  // SWR Infinite 훅 사용
+  const {
+    data,
+    error,
+    size,
+    setSize,
+    isValidating,
+    mutate
+  } = useSWRInfinite<ApiResponse>(getKey, fetcher, {
+    revalidateFirstPage: false,
+    revalidateOnFocus: false
+  });
+
+  // 데이터 평탄화
+  const posts = data ? data.flatMap(page => page.data) : [];
+  const isLoading = !data && !error;
+  const isLoadingMore = isValidating && data && data[data.length - 1];
+  const isEmpty = data?.[0]?.data.length === 0;
+  const isReachingEnd = isEmpty || (data && data[data.length - 1]?.pagination.hasMore === false);
+
+  // 검색 실행
+  const handleSearch = () => {
+    setSearch(searchInput);
+    mutate();
   };
 
-  // 초기 데이터 설정 및 로딩
-  useEffect(() => {
-    const initializeData = async () => {
-      setLoading(true);
-      
-      // 먼저 데이터 로딩 시도
-      await loadCommunityData();
-      
-      // 데이터가 없으면 더미 데이터 생성 후 다시 로딩
-      if (!communityData || (
-        communityData.likesPerView.length === 0 && 
-        communityData.commentsPerView.length === 0 && 
-        communityData.viewsPerHour.length === 0
-      )) {
-        console.log('데이터가 없어서 더미 데이터 생성 시도...');
-        const created = await createDummyData();
-        if (created) {
-          // 더미 데이터 생성 후 다시 로딩
-          await loadCommunityData();
-        }
-      }
-    };
-
-    initializeData();
-  }, []);
-
-  // 수동 데이터 새로고침
-  const handleRefresh = async () => {
-    setLoading(true);
-    await loadCommunityData();
+  // 정렬 변경
+  const handleSortChange = (newSortBy: string) => {
+    setSortBy(newSortBy);
+    mutate();
   };
 
-  // 더미 데이터 재생성
-  const handleCreateDummyData = async () => {
-    setLoading(true);
-    const created = await createDummyData();
-    if (created) {
-      await loadCommunityData();
-    } else {
-      setLoading(false);
+  // 순서 변경
+  const handleOrderChange = (newOrder: string) => {
+    setOrder(newOrder);
+    mutate();
+  };
+
+  // 카테고리 변경
+  const handleCategoryChange = (newCategory: string) => {
+    setCategory(newCategory);
+    mutate();
+  };
+
+  // 더 많은 데이터 로드
+  const loadMore = () => {
+    setSize(size + 1);
+  };
+
+  // 커뮤니티별 색상 설정
+  const getCommunityColor = (site: string) => {
+    switch (site) {
+      case 'fmkorea':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'ruliweb':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      case 'clien':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'dcinside':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
@@ -136,8 +173,64 @@ export default function CommunityPosts() {
         </p>
       </div>
 
+      {/* 검색 및 필터 섹션 */}
+      <div className="mb-8 space-y-4">
+        {/* 검색바 */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="게시글 제목, 내용, 작성자 검색..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              className="pl-10"
+            />
+          </div>
+          <Button onClick={handleSearch}>검색</Button>
+        </div>
+
+        {/* 필터 및 정렬 */}
+        <div className="flex flex-wrap gap-4">
+          <Select value={sortBy} onValueChange={handleSortChange}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="정렬 기준" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="created_at">최신순</SelectItem>
+              <SelectItem value="views">조회수순</SelectItem>
+              <SelectItem value="likes">추천순</SelectItem>
+              <SelectItem value="comments_count">댓글순</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={order} onValueChange={handleOrderChange}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="순서" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="desc">내림차순</SelectItem>
+              <SelectItem value="asc">오름차순</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={category} onValueChange={handleCategoryChange}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="카테고리" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">전체</SelectItem>
+              <SelectItem value="정치">정치</SelectItem>
+              <SelectItem value="사회">사회</SelectItem>
+              <SelectItem value="경제">경제</SelectItem>
+              <SelectItem value="일반">일반</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {/* 로딩 상태 */}
-      {loading && (
+      {isLoading && (
         <div className="text-center py-12">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-300">커뮤니티 게시글을 불러오는 중...</p>
@@ -145,61 +238,122 @@ export default function CommunityPosts() {
       )}
 
       {/* 에러 상태 */}
-      {error && !loading && (
+      {error && (
         <div className="text-center bg-red-50 dark:bg-red-950/20 rounded-lg p-8 mb-8">
           <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-red-800 dark:text-red-200 mb-2">
             데이터 로딩 실패
           </h2>
           <p className="text-red-600 dark:text-red-300 mb-4">
-            {error}
+            {error.message}
           </p>
-          <div className="space-x-4">
-            <Button onClick={handleRefresh} variant="outline">
-              다시 시도
-            </Button>
-            <Button onClick={handleCreateDummyData} variant="default">
-              더미 데이터 생성
-            </Button>
-          </div>
+          <Button onClick={() => mutate()} variant="outline">
+            다시 시도
+          </Button>
         </div>
       )}
 
-      {/* 커뮤니티 게시글 목록 */}
-      {communityData && !loading && !error && (
-        <div className="space-y-8">
-          <div className="flex justify-end items-center">
-            <div className="space-x-2">
-              <Button onClick={handleRefresh} variant="outline" size="sm">
-                새로고침
-              </Button>
-              <Button onClick={handleCreateDummyData} variant="secondary" size="sm">
-                더미 데이터 재생성
-              </Button>
-            </div>
-          </div>
-          
-          <CommunityPostList
-            likesPerView={communityData.likesPerView}
-            commentsPerView={communityData.commentsPerView}
-            viewsPerHour={communityData.viewsPerHour}
-          />
-        </div>
-      )}
-
-      {/* 데이터가 없는 경우 */}
-      {!loading && !error && communityData && 
-       communityData.likesPerView.length === 0 && 
-       communityData.commentsPerView.length === 0 && 
-       communityData.viewsPerHour.length === 0 && (
+      {/* 빈 상태 */}
+      {isEmpty && !isLoading && (
         <div className="text-center bg-gray-50 dark:bg-gray-900 rounded-lg p-12">
           <h2 className="text-2xl font-bold mb-4">📝 게시글이 없습니다</h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            아직 커뮤니티 게시글이 없습니다. 더미 데이터를 생성해보세요.
+          <p className="text-gray-600 dark:text-gray-300">
+            검색 조건에 맞는 게시글이 없습니다.
           </p>
-          <Button onClick={handleCreateDummyData}>
-            더미 데이터 생성하기
-          </Button>
+        </div>
+      )}
+
+      {/* 게시글 목록 */}
+      {posts.length > 0 && (
+        <div className="space-y-4">
+          {posts.map((post) => (
+            <Card key={post._id} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Badge className={getCommunityColor(post.site)}>
+                      {post.community || post.site}
+                    </Badge>
+                    <Badge variant="outline">
+                      {post.category}
+                    </Badge>
+                  </div>
+                  {post.url && (
+                    <a 
+                      href={post.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                </div>
+                
+                <CardTitle className="text-lg">
+                  <Link 
+                    href={`/community-posts/posts/${post._id}`}
+                    className="hover:text-blue-600 transition-colors"
+                  >
+                    {post.title}
+                  </Link>
+                </CardTitle>
+                
+                <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center">
+                    <User className="h-4 w-4 mr-1" />
+                    {post.author}
+                  </div>
+                  <div className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    {new Date(post.created_at).toLocaleDateString('ko-KR')}
+                  </div>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="pt-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center">
+                      <Eye className="h-4 w-4 mr-1" />
+                      {post.views.toLocaleString()}
+                    </div>
+                    <div className="flex items-center">
+                      <ThumbsUp className="h-4 w-4 mr-1 text-green-600" />
+                      {post.likes.toLocaleString()}
+                    </div>
+                    <div className="flex items-center">
+                      <MessageSquare className="h-4 w-4 mr-1 text-blue-600" />
+                      {post.comments_count.toLocaleString()}
+                    </div>
+                  </div>
+                  
+                  {/* 메트릭 표시 */}
+                  <div className="flex items-center space-x-2 text-xs text-gray-500">
+                    {post.likes_per_view && (
+                      <span>추천률: {(post.likes_per_view * 100).toFixed(1)}%</span>
+                    )}
+                    {post.comments_per_view && (
+                      <span>댓글률: {(post.comments_per_view * 100).toFixed(1)}%</span>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* 더 보기 버튼 */}
+          <div className="text-center py-8">
+            {isLoadingMore ? (
+              <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+            ) : isReachingEnd ? (
+              <p className="text-gray-500">모든 게시글을 불러왔습니다.</p>
+            ) : (
+              <Button onClick={loadMore} variant="outline">
+                더 보기
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

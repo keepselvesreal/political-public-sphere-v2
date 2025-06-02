@@ -163,7 +163,7 @@ export default function Home() {
     <div className="container mx-auto px-4 py-8">
       {/* 나도 분석해보기 버튼 */}
       <div className="flex justify-center mb-8">
-        <Link href="/write">
+        <Link href="/analysis-contest/write">
           <Button size="lg" className="flex items-center space-x-2 px-8 py-3">
             <Plus className="h-5 w-5" />
             <span className="text-lg font-medium">{t('analyzeMyself')}</span>
@@ -220,7 +220,7 @@ export default function Home() {
             <p className="text-muted-foreground mb-6">
               첫 번째 선거 분석을 작성해보세요!
             </p>
-            <Link href="/write">
+            <Link href="/analysis-contest/write">
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
                 {t('analyzeMyself')}
