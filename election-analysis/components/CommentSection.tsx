@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ThumbsUp, Reply, MessageCircle, Loader2 } from 'lucide-react';
+import { ThumbsUp, Reply, MessageCircle, Loader2, ThumbsDown, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 
@@ -21,11 +21,14 @@ interface Comment {
   content: string;
   date: string;
   likes: number;
+  dislikes?: number;
+  userVote?: 'like' | 'dislike' | null;
   replies?: Comment[];
   createdAt?: string;
   authorId?: string;
   parentId?: string;
   depth?: number;
+  isDeleted?: boolean;
 }
 
 interface CommentSectionProps {
@@ -183,31 +186,93 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     }
   };
   
-  // 댓글 좋아요 함수
-  const handleLike = async (commentId: string) => {
+  // 댓글 투표 함수 (좋아요/비추천)
+  const handleVote = async (commentId: string, voteType: 'like' | 'dislike') => {
     if (!session) {
       toast({
         title: "로그인 필요",
-        description: "좋아요를 누르려면 로그인이 필요합니다.",
+        description: "투표하려면 로그인이 필요합니다.",
         variant: "destructive",
       });
       return;
     }
     
     try {
-      // 좋아요 기능은 추후 구현 예정
-      toast({
-        title: "기능 준비 중",
-        description: "좋아요 기능은 곧 추가될 예정입니다.",
-        variant: "default",
+      const response = await fetch(`/api/comments/${commentId}/vote`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ voteType }),
       });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        // SWR 데이터 재검증으로 투표 결과 즉시 반영
+        await mutate();
+        toast({
+          title: "투표 완료",
+          description: result.message,
+        });
+      } else {
+        throw new Error(result.error || '투표 처리에 실패했습니다');
+      }
     } catch (error) {
+      console.error('투표 오류:', error);
       toast({
         title: "오류",
-        description: "좋아요 처리에 실패했습니다.",
+        description: error instanceof Error ? error.message : "투표 처리에 실패했습니다.",
         variant: "destructive",
       });
     }
+  };
+  
+  // 댓글 삭제 함수
+  const handleDeleteComment = async (commentId: string) => {
+    if (!session) {
+      toast({
+        title: "로그인 필요",
+        description: "댓글을 삭제하려면 로그인이 필요합니다.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!confirm('정말로 이 댓글을 삭제하시겠습니까?')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: 'DELETE',
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        // SWR 데이터 재검증으로 삭제 결과 즉시 반영
+        await mutate();
+        toast({
+          title: "삭제 완료",
+          description: result.message,
+        });
+      } else {
+        throw new Error(result.error || '댓글 삭제에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('댓글 삭제 오류:', error);
+      toast({
+        title: "오류",
+        description: error instanceof Error ? error.message : "댓글 삭제에 실패했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  // 댓글 좋아요 함수 (기존 함수 제거 예정)
+  const handleLike = async (commentId: string) => {
+    await handleVote(commentId, 'like');
   };
   
   // 키보드 이벤트 핸들러
@@ -248,21 +313,33 @@ export default function CommentSection({ postId }: CommentSectionProps) {
                 {comment.date}
               </time>
             </div>
-            <p className={`mt-2 whitespace-pre-wrap break-words ${depth > 0 ? 'text-sm' : ''}`}>
+            <p className={`mt-2 whitespace-pre-wrap break-words ${depth > 0 ? 'text-sm' : ''} ${comment.isDeleted ? 'text-muted-foreground italic' : ''}`}>
               {comment.content}
             </p>
             <div className="flex items-center space-x-4 mt-2">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-muted-foreground"
-                onClick={() => handleLike(comment.id)}
+                className={`text-muted-foreground ${comment.userVote === 'like' ? 'text-blue-600 bg-blue-50' : ''}`}
+                onClick={() => handleVote(comment.id, 'like')}
                 aria-label={`댓글에 좋아요`}
+                disabled={comment.isDeleted}
               >
                 <ThumbsUp className={`${depth > 0 ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} aria-hidden="true" />
                 <span className={depth > 0 ? 'text-xs' : 'text-sm'}>{comment.likes}</span>
               </Button>
-              {session && depth < maxDepth && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`text-muted-foreground ${comment.userVote === 'dislike' ? 'text-red-600 bg-red-50' : ''}`}
+                onClick={() => handleVote(comment.id, 'dislike')}
+                aria-label={`댓글에 비추천`}
+                disabled={comment.isDeleted}
+              >
+                <ThumbsDown className={`${depth > 0 ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} aria-hidden="true" />
+                <span className={depth > 0 ? 'text-xs' : 'text-sm'}>{comment.dislikes || 0}</span>
+              </Button>
+              {session && depth < maxDepth && !comment.isDeleted && (
                 <Button 
                   variant="ghost" 
                   size="sm" 
@@ -273,6 +350,18 @@ export default function CommentSection({ postId }: CommentSectionProps) {
                 >
                   <Reply className={`${depth > 0 ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} aria-hidden="true" />
                   <span className={depth > 0 ? 'text-xs' : 'text-sm'}>답글</span>
+                </Button>
+              )}
+              {session && session.user?.id === comment.authorId && !comment.isDeleted && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-red-600"
+                  onClick={() => handleDeleteComment(comment.id)}
+                  aria-label="댓글 삭제"
+                >
+                  <Trash2 className={`${depth > 0 ? 'h-3 w-3' : 'h-4 w-4'} mr-1`} aria-hidden="true" />
+                  <span className={depth > 0 ? 'text-xs' : 'text-sm'}>삭제</span>
                 </Button>
               )}
             </div>

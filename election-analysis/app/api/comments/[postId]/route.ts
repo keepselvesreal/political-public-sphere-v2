@@ -5,12 +5,14 @@
 - POST: 새 댓글/답글 추가 (실제 DB 연동)
 - 인증 및 유효성 검사
 - 에러 처리 및 로깅
+- 투표 정보 포함
 */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { connectDB } from '@/lib/mongoose';
 import Comment from '@/lib/models/Comment';
+import CommentVote from '@/lib/models/CommentVote';
 import Post from '@/lib/models/Post';
 
 // 댓글 목록 조회 (GET /api/comments/[postId])
@@ -37,6 +39,10 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
+    
+    // 사용자 세션 확인 (투표 정보 조회용)
+    const session = await auth();
+    const userId = session?.user?.id;
     
     // 댓글 트리 구조 조회 (새로운 스태틱 메서드 사용)
     let commentsTree;
@@ -71,7 +77,7 @@ export async function GET(
     const total = await Comment.countDocuments({ postId });
     
     // 댓글 데이터 포맷팅 (프론트엔드 형식에 맞춤)
-    const formattedComments = formatCommentsForFrontend(commentsTree);
+    const formattedComments = await formatCommentsForFrontend(commentsTree, userId);
     
     return NextResponse.json({
       comments: formattedComments,
@@ -233,22 +239,38 @@ export async function POST(
 }
 
 // 댓글 데이터를 프론트엔드 형식으로 포맷팅하는 유틸리티 함수
-function formatCommentsForFrontend(comments: any[]): any[] {
-  return comments.map(comment => ({
-    id: comment._id.toString(),
-    author: {
-      name: `사용자 ${comment.authorId.slice(-4)}`, // 임시 사용자명
-      avatar: '/avatars/default.jpg',
-    },
-    content: comment.content,
-    date: getRelativeTime(comment.createdAt),
-    likes: 0, // 추후 좋아요 기능 구현 시 업데이트
-    replies: comment.replies ? formatCommentsForFrontend(comment.replies) : [],
-    createdAt: comment.createdAt,
-    authorId: comment.authorId,
-    parentId: comment.parentId,
-    depth: comment.depth || 0
-  }));
+async function formatCommentsForFrontend(comments: any[], userId?: string): Promise<any[]> {
+  const formattedComments = await Promise.all(
+    comments.map(async (comment) => {
+      // 투표 정보 조회
+      const voteCounts = await (CommentVote as any).getVoteCounts(comment._id.toString());
+      let userVote = null;
+      if (userId) {
+        userVote = await (CommentVote as any).getUserVote(comment._id.toString(), userId);
+      }
+      
+      return {
+        id: comment._id.toString(),
+        author: {
+          name: `사용자 ${comment.authorId.slice(-4)}`, // 임시 사용자명
+          avatar: '/avatars/default.jpg',
+        },
+        content: comment.content,
+        date: getRelativeTime(comment.createdAt),
+        likes: voteCounts.likes,
+        dislikes: voteCounts.dislikes,
+        userVote,
+        replies: comment.replies ? await formatCommentsForFrontend(comment.replies, userId) : [],
+        createdAt: comment.createdAt,
+        authorId: comment.authorId,
+        parentId: comment.parentId,
+        depth: comment.depth || 0,
+        isDeleted: comment.content === '[삭제된 댓글입니다]'
+      };
+    })
+  );
+  
+  return formattedComments;
 }
 
 // 상대 시간 계산 유틸리티 함수
