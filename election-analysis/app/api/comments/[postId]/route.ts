@@ -202,7 +202,7 @@ export async function POST(
       id: newComment._id.toString(),
       author: {
         name: session.user.name || `사용자 ${session.user.id.slice(-4)}`,
-        avatar: session.user.image || '/avatars/default.jpg',
+        avatar: '', // 빈 문자열로 설정하여 AvatarFallback 사용
       },
       content: newComment.content,
       date: '방금 전',
@@ -253,7 +253,7 @@ async function formatCommentsForFrontend(comments: any[], userId?: string): Prom
         id: comment._id.toString(),
         author: {
           name: `사용자 ${comment.authorId.slice(-4)}`, // 임시 사용자명
-          avatar: '/avatars/default.jpg',
+          avatar: '', // 빈 문자열로 설정하여 AvatarFallback 사용
         },
         content: comment.content,
         date: getRelativeTime(comment.createdAt),

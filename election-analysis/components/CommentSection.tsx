@@ -198,7 +198,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     }
     
     try {
-      const response = await fetch(`/api/comments/${commentId}/vote`, {
+      const response = await fetch(`/api/comments/vote/${commentId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -244,22 +244,32 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     }
     
     try {
-      const response = await fetch(`/api/comments/${commentId}`, {
+      const response = await fetch(`/api/comments/delete/${commentId}`, {
         method: 'DELETE',
       });
       
+      // 응답이 성공적이지 않은 경우 처리
+      if (!response.ok) {
+        let errorMessage = '댓글 삭제에 실패했습니다';
+        try {
+          const errorResult = await response.json();
+          errorMessage = errorResult.error || errorMessage;
+        } catch {
+          // JSON 파싱 실패 시 기본 메시지 사용
+          errorMessage = `서버 오류 (${response.status})`;
+        }
+        throw new Error(errorMessage);
+      }
+      
       const result = await response.json();
       
-      if (response.ok) {
-        // SWR 데이터 재검증으로 삭제 결과 즉시 반영
-        await mutate();
-        toast({
-          title: "삭제 완료",
-          description: result.message,
-        });
-      } else {
-        throw new Error(result.error || '댓글 삭제에 실패했습니다');
-      }
+      // SWR 데이터 재검증으로 삭제 결과 즉시 반영
+      await mutate();
+      toast({
+        title: "삭제 완료",
+        description: result.message,
+      });
+      
     } catch (error) {
       console.error('댓글 삭제 오류:', error);
       toast({
