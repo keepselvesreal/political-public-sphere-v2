@@ -5,7 +5,7 @@
 
 작성자: AI Assistant
 작성일: 2025-01-28
-최종 수정: 2025-01-28 (드롭다운 복원, 메트릭 필터링, 내부 이동)
+최종 수정: 2025-01-28 (새로운 메트릭 구조 적용)
 */
 
 "use client";
@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
-// 임시 Post 타입 정의
+// 임시 Post 타입 정의 (새로운 메트릭 구조)
 interface Post {
   _id: string;
   id?: string;
@@ -44,6 +44,10 @@ interface Post {
   likes_per_view?: number;
   comments_per_view?: number;
   views_per_exposure_hour?: number;
+  // 새로운 메트릭 boolean 필드
+  top_likes: boolean;
+  top_comments: boolean;
+  top_views: boolean;
 }
 
 interface CommunityPostListProps {
@@ -70,6 +74,35 @@ export function CommunityPostList({
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('default');
   const [expandedCommunities, setExpandedCommunities] = useState<Set<string>>(new Set());
   const router = useRouter();
+
+  // 안전한 날짜 포맷팅 함수
+  const formatDate = (dateStr: string): string => {
+    try {
+      if (!dateStr) return '날짜 없음';
+      
+      const date = new Date(dateStr);
+      
+      // Invalid Date 체크
+      if (isNaN(date.getTime())) {
+        return '날짜 오류';
+      }
+      
+      return date.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.warn('날짜 포맷팅 오류:', dateStr, error);
+      return '날짜 오류';
+    }
+  };
+
+  // 숫자 포맷팅 함수 (천 단위 콤마)
+  const formatNumber = (num: number | undefined | null): string => {
+    if (num === undefined || num === null || isNaN(num)) return '0';
+    return num.toLocaleString('ko-KR');
+  };
 
   // 게시글 클릭 핸들러 - 내부 페이지로 이동
   const handlePostClick = (post: Post) => {
@@ -112,6 +145,18 @@ export function CommunityPostList({
       default:
         return '전체📊';
     }
+  };
+
+  // 게시글별 메트릭 태그 반환 (새로운 boolean 필드 기반)
+  const getPostMetricTag = (post: Post): string => {
+    if (post.top_likes) {
+      return '추천률🔥';
+    } else if (post.top_comments) {
+      return '댓글률💬';
+    } else if (post.top_views) {
+      return '조회수👀';
+    }
+    return getMetricTag();
   };
 
   // 커뮤니티별로 게시글 그룹화
@@ -285,15 +330,15 @@ export function CommunityPostList({
                                   section.name === 'instiz' ? 'bg-orange-200 dark:bg-orange-800' :
                                   'bg-gray-200 dark:bg-gray-800'
                                 }`}>
-                                  {metricTag}
+                                  {getPostMetricTag(post)}
                                 </span>
-                                <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                                <span>{formatDate(post.created_at)}</span>
                               </div>
                               <div className="flex items-center space-x-3">
-                                <span>👀 {post.views || 0}</span>
-                                <span>👍 {post.likes || 0}</span>
-                                <span>👎 {post.dislikes || 0}</span>
-                                <span>💬 {post.comments_count || 0}</span>
+                                <span>👀 {formatNumber(post.views)}</span>
+                                <span>👍 {formatNumber(post.likes)}</span>
+                                <span>👎 {formatNumber(post.dislikes)}</span>
+                                <span>💬 {formatNumber(post.comments_count)}</span>
                               </div>
                             </div>
                           </div>

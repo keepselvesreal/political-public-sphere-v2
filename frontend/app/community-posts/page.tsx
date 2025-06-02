@@ -13,7 +13,7 @@ import { CommunityPostList } from '@/components/community-posts/community-post-l
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-// 커뮤니티 게시글 타입 정의
+// 커뮤니티 게시글 타입 정의 (새로운 메트릭 구조)
 interface CommunityPost {
   _id: string;
   post_id: string;
@@ -27,10 +27,15 @@ interface CommunityPost {
   dislikes: number;
   comments_count: number;
   url?: string;
-  category: string;
+  content?: string;
+  category: string; // 호환성을 위한 필드
   likes_per_view?: number;
   comments_per_view?: number;
   views_per_exposure_hour?: number;
+  // 새로운 메트릭 boolean 필드
+  top_likes: boolean;
+  top_comments: boolean;
+  top_views: boolean;
 }
 
 // 메트릭별 데이터 타입
@@ -45,17 +50,17 @@ export default function CommunityPosts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 메트릭별 데이터 가져오기
+  // 메트릭별 데이터 가져오기 (새로운 구조)
   const fetchMetricData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // 각 메트릭별로 상위 게시글 가져오기
+      // 각 메트릭별로 상위 게시글 가져오기 (새로운 topMetric 파라미터 사용)
       const [likesResponse, commentsResponse, viewsResponse] = await Promise.all([
-        fetch('/api/community-posts?sortBy=likes&order=desc&limit=50'),
-        fetch('/api/community-posts?sortBy=comments_count&order=desc&limit=50'),
-        fetch('/api/community-posts?sortBy=views&order=desc&limit=50')
+        fetch('/api/community-posts?topMetric=top_likes&limit=50'),
+        fetch('/api/community-posts?topMetric=top_comments&limit=50'),
+        fetch('/api/community-posts?topMetric=top_views&limit=50')
       ]);
 
       if (!likesResponse.ok || !commentsResponse.ok || !viewsResponse.ok) {
@@ -68,7 +73,7 @@ export default function CommunityPosts() {
         viewsResponse.json()
       ]);
 
-      // 메트릭 계산 및 정렬
+      // 메트릭 계산 및 정렬 (새로운 구조)
       const calculateMetrics = (posts: CommunityPost[]) => {
         return posts.map(post => ({
           ...post,
@@ -81,15 +86,19 @@ export default function CommunityPosts() {
         }));
       };
 
+      // 각 메트릭별로 정렬 (boolean 필드는 이미 API에서 설정됨)
       const likesPerViewPosts = calculateMetrics(likesData.data)
+        .filter(post => post.top_likes) // top_likes가 true인 게시글만
         .sort((a, b) => (b.likes_per_view || 0) - (a.likes_per_view || 0))
         .slice(0, 30);
 
       const commentsPerViewPosts = calculateMetrics(commentsData.data)
+        .filter(post => post.top_comments) // top_comments가 true인 게시글만
         .sort((a, b) => (b.comments_per_view || 0) - (a.comments_per_view || 0))
         .slice(0, 30);
 
       const viewsPerHourPosts = calculateMetrics(viewsData.data)
+        .filter(post => post.top_views) // top_views가 true인 게시글만
         .sort((a, b) => (b.views_per_exposure_hour || 0) - (a.views_per_exposure_hour || 0))
         .slice(0, 30);
 
