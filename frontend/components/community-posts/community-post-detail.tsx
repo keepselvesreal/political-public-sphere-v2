@@ -1,7 +1,7 @@
 "use client";
 
 /*
-커뮤니티 게시글 상세 렌더링 컴포넌트
+커뮤니티 게시글 상세 렌더링 컴포넌트 (실제 스크래핑 데이터 기반)
 
 주요 기능:
 - CommunityPostDetailRenderer: 스크래핑 데이터 기반 게시글 상세 렌더링 (line 111-653)
@@ -12,7 +12,7 @@
 
 작성자: AI Assistant
 작성일: 2025-01-28 (업데이트)
-목적: 커뮤니티 게시글 상세 페이지 렌더링
+목적: 커뮤니티 게시글 상세 페이지 렌더링 (실제 데이터 구조 적용)
 */
 
 import React from 'react';
@@ -25,7 +25,7 @@ import { ko } from "date-fns/locale";
 import Link from "next/link";
 import Image from "next/image";
 
-// 커뮤니티 게시글 콘텐츠 타입 정의
+// 실제 스크래핑 데이터 기반 콘텐츠 타입 정의
 interface CommunityPostContent {
   type: 'image' | 'text' | 'video';
   order: number;
@@ -65,41 +65,54 @@ interface CommunityPostContent {
   };
 }
 
+// 실제 스크래핑 데이터 기반 댓글 타입 정의
+interface CommunityPostComment {
+  comment_id: string;
+  author: string;
+  content: string;
+  images?: string[];
+  created_at: string;
+  date: string;
+  like_count: number;
+  dislike_count: number;
+  is_best: boolean;
+  index?: number;
+  level?: number;
+  is_reply?: boolean;
+  parent_comment?: string;
+  vote_count?: number;
+  blame_count?: number;
+  is_author?: boolean;
+  image_url?: string;
+  image_link?: string;
+  video_url?: string;
+  video_autoplay?: boolean;
+  video_loop?: boolean;
+  video_muted?: boolean;
+}
+
+// 실제 스크래핑 데이터 기반 게시글 데이터 타입
 interface CommunityPostData {
   post_id: string;
   post_url: string;
   scraped_at: string;
   metadata: {
     title?: string;
-    author?: string;
-    date?: string;
     category?: string;
-    view_count?: number;
+    author?: string;
+    created_at?: string;
+    date?: string;
     like_count?: number;
     dislike_count?: number;
+    recommendations?: number;
+    view_count?: number;
+    views?: number;
     comment_count?: number;
   };
   content: CommunityPostContent[];
-  comments: Array<{
-    comment_id: string;
-    author: string;
-    content: string;
-    date: string;
-    level?: number;
-    is_reply?: boolean;
-    parent_comment?: string;
-    vote_count?: number;
-    blame_count?: number;
-    is_best?: boolean;
-    is_author?: boolean;
-    image_url?: string;
-    image_link?: string;
-    video_url?: string;
-    video_autoplay?: boolean;
-    video_loop?: boolean;
-    video_muted?: boolean;
-  }>;
+  comments: CommunityPostComment[];
   experiment_purpose?: string;
+  page_title?: string;
 }
 
 interface CommunityPostDetailRendererProps {
@@ -114,18 +127,39 @@ export function CommunityPostDetailRenderer({
   onBack
 }: CommunityPostDetailRendererProps) {
   
+  // 실제 데이터 형식에 맞는 날짜 포맷팅
   const formatDate = (dateString: string) => {
     try {
-      return formatDistanceToNow(new Date(dateString), { 
-        addSuffix: true, 
-        locale: ko 
-      });
+      if (!dateString) return '날짜 없음';
+      
+      // 실제 스크래핑 데이터 형식 처리
+      if (dateString.includes('.') && dateString.length <= 15) {
+        // "25.06.03 03:16" 형식
+        return dateString;
+      }
+      
+      if (dateString.includes(':') && !dateString.includes(' ')) {
+        // "03:16" 형식 (시간만)
+        return `오늘 ${dateString}`;
+      }
+      
+      // 표준 날짜 형식 시도
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return formatDistanceToNow(date, { 
+          addSuffix: true, 
+          locale: ko 
+        });
+      }
+      
+      return dateString;
     } catch {
       return dateString;
     }
   };
 
-  const formatNumber = (num: number | string) => {
+  const formatNumber = (num: number | string | undefined) => {
+    if (num === undefined || num === null) return '0';
     const numValue = typeof num === 'string' ? parseInt(num) : num;
     return isNaN(numValue) ? '0' : numValue.toLocaleString('ko-KR');
   };
@@ -133,20 +167,38 @@ export function CommunityPostDetailRenderer({
   // 콘텐츠를 순서대로 렌더링
   const renderContent = () => {
     if (!postData.content || postData.content.length === 0) {
-      return <p className="text-muted-foreground">콘텐츠를 찾을 수 없습니다.</p>;
+      return (
+        <div className="text-center py-8">
+          <p className="text-muted-foreground mb-4">콘텐츠를 찾을 수 없습니다.</p>
+          <p className="text-sm text-muted-foreground">
+            이 게시글은 텍스트 콘텐츠가 없거나 스크래핑되지 않았을 수 있습니다.
+          </p>
+          {postData.post_url && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-4"
+              onClick={() => window.open(postData.post_url, '_blank')}
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              원본 게시글 보기
+            </Button>
+          )}
+        </div>
+      );
     }
 
     // 순서대로 정렬
     const sortedContent = [...postData.content].sort((a, b) => a.order - b.order);
 
-    return sortedContent.map((content) => {
+    return sortedContent.map((content, index) => {
       switch (content.type) {
         case 'image':
-          return renderImage(content);
+          return renderImage(content, index);
         case 'text':
-          return renderText(content);
+          return renderText(content, index);
         case 'video':
-          return renderVideo(content);
+          return renderVideo(content, index);
         default:
           return null;
       }
@@ -154,7 +206,7 @@ export function CommunityPostDetailRenderer({
   };
 
   // 이미지 콘텐츠 렌더링 (개선된 버전)
-  const renderImage = (content: CommunityPostContent) => {
+  const renderImage = (content: CommunityPostContent, index: number) => {
     const { data } = content;
     
     // 안전한 데이터 접근
@@ -181,11 +233,12 @@ export function CommunityPostDetailRenderer({
 
     const imageElement = (
       <img
+        key={`image-${index}`}
         src={imageSrc}
         alt={data.alt || ''}
         style={{ 
           width: '100%',
-          maxWidth: '600px', // 더 적절한 크기로 조정
+          maxWidth: '600px',
           height: 'auto',
           marginBottom: '16px',
           borderRadius: '8px',
@@ -206,41 +259,42 @@ export function CommunityPostDetailRenderer({
             }
           }
           
-          // 모든 fallback이 실패하면 기본 이미지로 대체
+          // 모든 fallback 실패 시 placeholder 표시
           target.style.display = 'none';
-          const errorDiv = document.createElement('div');
-          errorDiv.className = 'text-center text-muted-foreground p-4 border border-dashed rounded';
-          errorDiv.innerHTML = '이미지를 불러올 수 없습니다';
-          target.parentNode?.insertBefore(errorDiv, target);
+          const placeholder = document.createElement('div');
+          placeholder.className = 'bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-500 mx-auto mb-4';
+          placeholder.style.maxWidth = '600px';
+          placeholder.innerHTML = `
+            <div class="text-sm">
+              <p>이미지를 불러올 수 없습니다</p>
+              <p class="text-xs mt-1 text-gray-400">${data.alt || '이미지'}</p>
+            </div>
+          `;
+          target.parentNode?.insertBefore(placeholder, target);
         }}
       />
     );
 
-    // 링크가 있으면 링크로 감싸기
+    // 링크가 있는 경우 링크로 감싸기
     if (data.href) {
       return (
-        <div key={`image-${content.order}`} className="text-center mb-4">
-          <a 
-            href={data.href} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className={data.link_class || ''}
-          >
-            {imageElement}
-          </a>
-        </div>
+        <a
+          key={`image-link-${index}`}
+          href={data.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block"
+        >
+          {imageElement}
+        </a>
       );
     }
 
-    return (
-      <div key={`image-${content.order}`} className="text-center mb-4">
-        {imageElement}
-      </div>
-    );
+    return imageElement;
   };
 
   // 텍스트 콘텐츠 렌더링
-  const renderText = (content: CommunityPostContent) => {
+  const renderText = (content: CommunityPostContent, index: number) => {
     const { data } = content;
     
     if (!data || (!data.text && !data.innerHTML)) return null;
@@ -268,7 +322,7 @@ export function CommunityPostDetailRenderer({
 
     return (
       <Tag
-        key={`text-${content.order}`}
+        key={`text-${index}`}
         id={data.id}
         className={`${data.class || ''} mb-4`}
         style={style}
@@ -278,13 +332,13 @@ export function CommunityPostDetailRenderer({
   };
 
   // 동영상 콘텐츠 렌더링
-  const renderVideo = (content: CommunityPostContent) => {
+  const renderVideo = (content: CommunityPostContent, index: number) => {
     const { data } = content;
     
     if (!data || !data.src) return null;
 
     return (
-      <div key={`video-${content.order}`} className="text-center mb-4">
+      <div key={`video-${index}`} className="text-center mb-4">
         <video
           src={data.src}
           poster={data.poster}
@@ -341,30 +395,30 @@ export function CommunityPostDetailRenderer({
                   )}
                 </div>
 
-                <div className="flex items-center gap-4 text-sm">
-                  {postData.metadata?.view_count !== undefined && (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <Eye className="h-4 w-4" />
-                      조회수 {postData.metadata.view_count.toLocaleString()}
-                    </span>
-                  )}
-                  {postData.metadata?.like_count !== undefined && (
-                    <span className="flex items-center gap-1 text-green-600">
-                      <Heart className="h-4 w-4" />
-                      추천 {postData.metadata.like_count.toLocaleString()}
-                    </span>
-                  )}
-                  {postData.metadata?.dislike_count !== undefined && postData.metadata.dislike_count > 0 && (
-                    <span className="flex items-center gap-1 text-red-600">
-                      👎 비추천 {postData.metadata.dislike_count.toLocaleString()}
-                    </span>
-                  )}
-                  {postData.metadata?.comment_count !== undefined && (
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      <MessageCircle className="h-4 w-4" />
-                      댓글 {postData.metadata.comment_count.toLocaleString()}
-                    </span>
-                  )}
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    {/* 조회수 - views와 view_count 모두 지원 */}
+                    {(postData.metadata?.view_count !== undefined || postData.metadata?.views !== undefined) && (
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <Eye className="h-4 w-4" />
+                        조회수 {formatNumber(postData.metadata.view_count || postData.metadata.views)}
+                      </span>
+                    )}
+                    {/* 추천수 - like_count와 recommendations 모두 지원 */}
+                    {(postData.metadata?.like_count !== undefined || postData.metadata?.recommendations !== undefined) && (
+                      <span className="flex items-center gap-1 text-green-600">
+                        <Heart className="h-4 w-4" />
+                        추천 {formatNumber(postData.metadata.like_count || postData.metadata.recommendations)}
+                      </span>
+                    )}
+                    {/* 댓글수 */}
+                    {postData.metadata?.comment_count !== undefined && (
+                      <span className="flex items-center gap-1 text-muted-foreground">
+                        <MessageCircle className="h-4 w-4" />
+                        댓글 {formatNumber(postData.metadata.comment_count)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -411,7 +465,7 @@ export function CommunityPostDetailRenderer({
                 <div 
                   key={comment.comment_id || index} 
                   className={`border-l-2 ${comment.is_reply ? 'border-blue-200' : 'border-muted'} pl-4 ${ 
-                    (comment as any).is_best ? 'bg-yellow-50 border-yellow-300' : 'bg-gray-50 border-gray-200'
+                    comment.is_best ? 'bg-yellow-50 border-yellow-300' : 'bg-gray-50 border-gray-200'
                   } rounded-lg p-3 mb-2`}
                   style={{ marginLeft: `${marginLeft}px` }}
                 >
@@ -429,7 +483,7 @@ export function CommunityPostDetailRenderer({
                         </span>
                         
                         {/* BEST 표시 */}
-                        {(comment as any).is_best && (
+                        {comment.is_best && (
                           <span className="bg-yellow-400 text-yellow-900 px-2 py-1 rounded text-xs font-bold">
                             BEST
                           </span>
@@ -442,52 +496,79 @@ export function CommunityPostDetailRenderer({
                           </span>
                         )}
                         
-                        {/* 작성시간 */}
-                        {comment.date && (
+                        {/* 작성시간 - created_at과 date 모두 지원 */}
+                        {(comment.date || comment.created_at) && (
                           <span className="text-gray-500 text-xs">
-                            {comment.date}
+                            {formatDate(comment.date || comment.created_at)}
                           </span>
                         )}
                       </div>
                       
-                      {/* 댓글 이미지 */}
-                      {(comment as any).image_url && (
+                      {/* 댓글 이미지들 (images 배열 지원) */}
+                      {comment.images && comment.images.length > 0 && (
+                        <div className="mb-2 space-y-2">
+                          {comment.images.map((imageUrl, imgIndex) => (
+                            <img 
+                              key={imgIndex}
+                              src={imageUrl} 
+                              alt={`댓글 이미지 ${imgIndex + 1}`} 
+                              className="max-w-full h-auto rounded border"
+                              style={{ maxHeight: '300px' }}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* 댓글 이미지 (단일 image_url) */}
+                      {comment.image_url && (
                         <div className="mb-2">
-                          {(comment as any).image_link ? (
+                          {comment.image_link ? (
                             <a 
-                              href={(comment as any).image_link} 
+                              href={comment.image_link} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="block"
                             >
                               <img 
-                                src={(comment as any).image_url} 
+                                src={comment.image_url} 
                                 alt="댓글 이미지" 
                                 className="max-w-full h-auto rounded border"
                                 style={{ maxHeight: '300px' }}
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
                               />
                             </a>
                           ) : (
                             <img 
-                              src={(comment as any).image_url} 
+                              src={comment.image_url} 
                               alt="댓글 이미지" 
                               className="max-w-full h-auto rounded border"
                               style={{ maxHeight: '300px' }}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                              }}
                             />
                           )}
                         </div>
                       )}
                       
                       {/* 댓글 비디오 */}
-                      {(comment as any).video_url && (
+                      {comment.video_url && (
                         <div className="mb-2">
                           <video 
-                            src={(comment as any).video_url}
+                            src={comment.video_url}
                             className="max-w-full h-auto rounded border"
                             style={{ maxHeight: '300px' }}
-                            autoPlay={(comment as any).video_autoplay || false}
-                            loop={(comment as any).video_loop || false}
-                            muted={(comment as any).video_muted || true}
+                            autoPlay={comment.video_autoplay || false}
+                            loop={comment.video_loop || false}
+                            muted={comment.video_muted || true}
                             playsInline
                             controls
                           />
@@ -501,18 +582,37 @@ export function CommunityPostDetailRenderer({
                         </p>
                       )}
                       
-                      {/* 추천/비추천 */}
+                      {/* 추천/비추천 - 실제 데이터 필드 기반 */}
                       <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                        {comment.vote_count !== undefined && (
+                        {(comment.like_count !== undefined && comment.like_count > 0) && (
+                          <span className="flex items-center space-x-1">
+                            <span>👍</span>
+                            <span>{comment.like_count}</span>
+                          </span>
+                        )}
+                        {(comment.dislike_count !== undefined && comment.dislike_count > 0) && (
+                          <span className="flex items-center space-x-1">
+                            <span>👎</span>
+                            <span>{comment.dislike_count}</span>
+                          </span>
+                        )}
+                        {/* 기존 vote_count, blame_count도 지원 */}
+                        {(comment.vote_count !== undefined && comment.vote_count > 0) && (
                           <span className="flex items-center space-x-1">
                             <span>👍</span>
                             <span>{comment.vote_count}</span>
                           </span>
                         )}
-                        {comment.blame_count !== undefined && (
+                        {(comment.blame_count !== undefined && comment.blame_count > 0) && (
                           <span className="flex items-center space-x-1">
                             <span>👎</span>
                             <span>{comment.blame_count}</span>
+                          </span>
+                        )}
+                        {/* 댓글 인덱스 표시 */}
+                        {comment.index !== undefined && (
+                          <span className="text-gray-400">
+                            #{comment.index + 1}
                           </span>
                         )}
                       </div>
@@ -529,6 +629,7 @@ export function CommunityPostDetailRenderer({
       <div className="mt-8 text-center">
         {onBack ? (
           <Button variant="outline" onClick={onBack}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
             목록으로 돌아가기
           </Button>
         ) : (

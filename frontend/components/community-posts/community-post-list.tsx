@@ -1,11 +1,11 @@
 /*
-커뮤니티별 게시글 목록 컴포넌트
+커뮤니티별 게시글 목록 컴포넌트 (실제 스크래핑 데이터 기반)
 주요 기능: 메트릭 드롭다운, 선택된 메트릭만 표시, 내부 페이지 이동
 라인 구성: 1-30(imports&types), 31-80(유틸함수), 81-150(컴포넌트렌더링)
 
 작성자: AI Assistant
 작성일: 2025-01-28
-최종 수정: 2025-01-28 (새로운 메트릭 구조 적용)
+최종 수정: 2025-01-28 (실제 스크래핑 데이터 구조 적용)
 */
 
 "use client";
@@ -18,10 +18,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
-// 임시 Post 타입 정의 (새로운 메트릭 구조)
+// 실제 스크래핑 데이터 기반 Post 타입 정의
 interface Post {
   _id: string;
-  id?: string;
   post_id: string;
   community: string;
   site: string;
@@ -32,19 +31,9 @@ interface Post {
   likes: number;
   dislikes: number;
   comments_count: number;
-  url?: string;
+  url: string;
   category: string;
-  content?: string;
-  comments?: any[];
-  metrics?: {
-    likes_per_view?: number;
-    comments_per_view?: number;
-    views_per_exposure_hour?: number;
-  };
-  likes_per_view?: number;
-  comments_per_view?: number;
-  views_per_exposure_hour?: number;
-  // 새로운 메트릭 boolean 필드
+  // 메트릭 분류 필드
   top_likes: boolean;
   top_comments: boolean;
   top_views: boolean;
@@ -75,26 +64,47 @@ export function CommunityPostList({
   const [expandedCommunities, setExpandedCommunities] = useState<Set<string>>(new Set());
   const router = useRouter();
 
-  // 안전한 날짜 포맷팅 함수
+  // 안전한 날짜 포맷팅 함수 (실제 데이터 형식 고려)
   const formatDate = (dateStr: string): string => {
     try {
       if (!dateStr) return '날짜 없음';
       
-      const date = new Date(dateStr);
-      
-      // Invalid Date 체크
-      if (isNaN(date.getTime())) {
-        return '날짜 오류';
+      // 실제 스크래핑 데이터에서 오는 형식들 처리
+      // "03:18", "2019.03.24", "25.06.03 03:16" 등
+      if (dateStr.includes(':') && !dateStr.includes(' ')) {
+        // 시간만 있는 경우 (오늘)
+        return `오늘 ${dateStr}`;
       }
       
-      return date.toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
+      if (dateStr.includes('.')) {
+        // "2019.03.24" 또는 "25.06.03 03:16" 형식
+        const parts = dateStr.split(' ');
+        const datePart = parts[0];
+        const timePart = parts[1] || '';
+        
+        if (datePart.length <= 8) {
+          // "25.06.03" 형식 (짧은 년도)
+          return timePart ? `${datePart} ${timePart}` : datePart;
+        } else {
+          // "2019.03.24" 형식 (긴 년도)
+          return datePart;
+        }
+      }
+      
+      // 표준 날짜 형식 시도
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+      }
+      
+      return dateStr; // 원본 반환
     } catch (error) {
       console.warn('날짜 포맷팅 오류:', dateStr, error);
-      return '날짜 오류';
+      return dateStr;
     }
   };
 
@@ -107,6 +117,14 @@ export function CommunityPostList({
   // 게시글 클릭 핸들러 - 내부 페이지로 이동
   const handlePostClick = (post: Post) => {
     router.push(`/community-posts/posts/${post._id}`);
+  };
+
+  // 외부 링크 클릭 핸들러
+  const handleExternalLinkClick = (post: Post, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (post.url) {
+      window.open(post.url, '_blank', 'noopener,noreferrer');
+    }
   };
 
   // 메트릭에 따른 게시글 선택
@@ -147,7 +165,7 @@ export function CommunityPostList({
     }
   };
 
-  // 게시글별 메트릭 태그 반환 (새로운 boolean 필드 기반)
+  // 게시글별 메트릭 태그 반환 (실제 boolean 필드 기반)
   const getPostMetricTag = (post: Post): string => {
     if (post.top_likes) {
       return '추천률🔥';
@@ -156,33 +174,33 @@ export function CommunityPostList({
     } else if (post.top_views) {
       return '조회수👀';
     }
-    return getMetricTag();
+    return '일반📝';
   };
 
-  // 커뮤니티별로 게시글 그룹화
+  // 커뮤니티별로 게시글 그룹화 (실제 사이트명 기반)
   const groupPostsByCommunity = (posts: Post[]): CommunitySection[] => {
     const communityMap = new Map<string, Post[]>();
     
     posts.forEach(post => {
-      const community = post.site || '기타';
+      const community = post.site || post.community || '기타';
       if (!communityMap.has(community)) {
         communityMap.set(community, []);
       }
       communityMap.get(community)!.push(post);
     });
 
-    // 커뮤니티별 정보 매핑
-    const communityInfo: Record<string, { emoji: string; color: string }> = {
-      'fmkorea': { emoji: '🎮', color: 'blue' },
-      'ruliweb': { emoji: '🎯', color: 'purple' },
-      'clien': { emoji: '💻', color: 'green' },
-      'dcinside': { emoji: '🎨', color: 'red' },
-      'instiz': { emoji: '🌟', color: 'orange' },
-      '기타': { emoji: '📝', color: 'gray' }
+    // 실제 커뮤니티별 정보 매핑
+    const communityInfo: Record<string, { emoji: string; color: string; name: string }> = {
+      'fmkorea': { emoji: '🎮', color: 'blue', name: 'FM코리아' },
+      'ruliweb': { emoji: '🎯', color: 'purple', name: '루리웹' },
+      'clien': { emoji: '💻', color: 'green', name: '클리앙' },
+      'dcinside': { emoji: '🎨', color: 'red', name: 'DC인사이드' },
+      'instiz': { emoji: '🌟', color: 'orange', name: '인스티즈' },
+      '기타': { emoji: '📝', color: 'gray', name: '기타' }
     };
 
     return Array.from(communityMap.entries()).map(([name, posts]) => ({
-      name,
+      name: communityInfo[name]?.name || name,
       emoji: communityInfo[name]?.emoji || '📝',
       color: communityInfo[name]?.color || 'gray',
       posts: posts.slice(0, 3), // 기본적으로 3개만 표시
@@ -358,7 +376,10 @@ export function CommunityPostList({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => toggleCommunityExpansion(section.name)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCommunityExpansion(section.name);
+                        }}
                         className="text-xs"
                       >
                         {expandedCommunities.has(section.name) 
