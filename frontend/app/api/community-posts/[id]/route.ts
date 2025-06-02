@@ -52,18 +52,36 @@ export async function GET(
     // 직접 MongoDB 컬렉션에서 데이터 조회
     const collection = db.collection('fmkorea_posts');
     
-    const post = await collection.findOne({ post_id: postId });
+    // MongoDB ObjectId인지 확인하고 적절한 쿼리 사용
+    let post;
+    
+    // ObjectId 형태인지 확인 (24자리 16진수)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(postId);
+    
+    if (isObjectId) {
+      // ObjectId로 검색
+      const { ObjectId } = require('mongodb');
+      post = await collection.findOne({ _id: new ObjectId(postId) });
+      console.log('ObjectId로 검색:', postId);
+    } else {
+      // post_id로 검색 (기존 방식)
+      post = await collection.findOne({ post_id: postId });
+      console.log('post_id로 검색:', postId);
+    }
 
     if (!post) {
       return NextResponse.json(
         {
           success: false,
           error: '게시글을 찾을 수 없습니다.',
-          post_id: postId
+          searched_id: postId,
+          search_type: isObjectId ? 'ObjectId' : 'post_id'
         },
         { status: 404 }
       );
     }
+
+    console.log('게시글 발견:', post.metadata?.title || post.post_id);
 
     // Atlas 데이터를 실험용 컴포넌트 형태로 변환
     const transformedContent = (post.content || []).map((item: any) => {
@@ -73,12 +91,12 @@ export async function GET(
             type: 'text',
             order: item.order || 0,
             data: {
-              text: item.content || '',
-              innerHTML: item.html || '',
-              tag: 'div',
-              style: '',
-              class: '',
-              id: ''
+              text: item.data?.text || item.content || '',
+              innerHTML: item.data?.innerHTML || item.html || '',
+              tag: item.data?.tag || 'div',
+              style: item.data?.style || '',
+              class: item.data?.class || '',
+              id: item.data?.id || ''
             }
           };
         case 'image':
@@ -86,13 +104,18 @@ export async function GET(
             type: 'image',
             order: item.order || 0,
             data: {
-              src: item.src || '',
-              alt: item.alt || '',
-              width: item.width || '',
-              height: item.height || '',
-              href: item.href || '',
-              data_original: item.data_original || item.src || '',
-              original_src: item.original_src || item.src || ''
+              src: item.data?.src || item.src || '',
+              alt: item.data?.alt || item.alt || '',
+              width: item.data?.width || item.width || '',
+              height: item.data?.height || item.height || '',
+              href: item.data?.href || item.href || '',
+              data_original: item.data?.data_original || item.data_original || item.src || '',
+              original_src: item.data?.original_src || item.original_src || item.src || '',
+              style: item.data?.style || '',
+              class: item.data?.class || '',
+              title: item.data?.title || '',
+              link_class: item.data?.link_class || '',
+              link_rel: item.data?.link_rel || ''
             }
           };
         case 'video':
@@ -100,13 +123,16 @@ export async function GET(
             type: 'video',
             order: item.order || 0,
             data: {
-              src: item.src || '',
-              poster: item.poster || '',
-              autoplay: item.autoplay || false,
-              loop: item.loop || false,
-              muted: item.muted || true,
-              controls: item.controls !== false,
-              preload: item.preload || 'metadata'
+              src: item.data?.src || item.src || '',
+              poster: item.data?.poster || item.poster || '',
+              autoplay: item.data?.autoplay || item.autoplay || false,
+              loop: item.data?.loop || item.loop || false,
+              muted: item.data?.muted || item.muted || true,
+              controls: item.data?.controls !== false && item.controls !== false,
+              preload: item.data?.preload || item.preload || 'metadata',
+              width: item.data?.width || item.width || '',
+              height: item.data?.height || item.height || '',
+              class: item.data?.class || ''
             }
           };
         default:
@@ -155,14 +181,14 @@ export async function GET(
         
         // 메타데이터
         metadata: {
-          title: extractTitle(post.content),
-          author: '익명', // 에펨코리아는 익명
-          date: post.created_at,
+          title: post.metadata?.title || extractTitle(post.content),
+          author: post.metadata?.author || '익명',
+          date: post.metadata?.date || post.created_at,
           category: '정치',
-          view_count: generateMetric(post.post_id, 100, 2000),
-          like_count: generateMetric(post.post_id + '1', 10, 300),
-          dislike_count: generateMetric(post.post_id + '2', 1, 50),
-          comment_count: post.comments?.length || 0
+          view_count: post.metadata?.view_count || generateMetric(post.post_id, 100, 2000),
+          like_count: post.metadata?.like_count || generateMetric(post.post_id + '1', 10, 300),
+          dislike_count: post.metadata?.dislike_count || generateMetric(post.post_id + '2', 1, 50),
+          comment_count: post.comments?.length || post.metadata?.comment_count || 0
         },
         
         // 변환된 콘텐츠 구조
@@ -197,9 +223,13 @@ function extractTitle(content: any[]): string {
   if (!content || content.length === 0) return '제목 없음';
   
   // 첫 번째 텍스트 콘텐츠에서 제목 추출
-  const firstTextContent = content.find(item => item.type === 'text' && item.content);
+  const firstTextContent = content.find(item => 
+    item.type === 'text' && (item.data?.text || item.content)
+  );
+  
   if (firstTextContent) {
-    const title = firstTextContent.content.substring(0, 100);
+    const text = firstTextContent.data?.text || firstTextContent.content || '';
+    const title = text.substring(0, 100);
     return title || '제목 없음';
   }
   
