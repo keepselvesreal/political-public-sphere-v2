@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { ModeToggle } from '@/components/ModeToggle';
-import { BarChart2, User, LogOut, PenTool } from 'lucide-react';
+import { BarChart2, User, LogOut, PenTool, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -88,39 +88,55 @@ export default function Header() {
     <header 
       className={`sticky top-0 z-50 w-full transition-all duration-300 ${
         isScrolled 
-          ? 'bg-white dark:bg-gray-950 shadow-md py-3' 
-          : 'bg-transparent py-5'
+          ? 'bg-white dark:bg-gray-950 shadow-md' 
+          : 'bg-transparent'
       }`}
     >
-      <div className="container mx-auto px-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2">
-          <BarChart2 className="h-6 w-6 text-blue-600" />
-          <span className="font-bold text-xl">ElectionPulse</span>
-        </Link>
-        
-        <div className="flex items-center space-x-8">
-          <nav className="hidden md:flex space-x-8">
+      {/* 상단 타이틀 영역 */}
+      <div className="w-full bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 py-3">
+        <div className="container mx-auto px-4 flex items-center justify-center">
+          <div className="flex items-center space-x-3">
+            {/* 임시 이미지 아이콘 */}
+            <Image className="h-8 w-8 text-blue-600" />
+            <h1 className="font-bold text-2xl text-gray-900 dark:text-white">
+              정치적 공론장
+            </h1>
+          </div>
+        </div>
+      </div>
+
+      {/* 하단 네비게이션 영역 */}
+      <div className={`w-full transition-all duration-300 ${
+        isScrolled ? 'py-2' : 'py-4'
+      }`}>
+        <div className="container mx-auto px-4 flex items-center justify-between">
+          {/* 좌측 여백 */}
+          <div className="flex-1"></div>
+          
+          {/* 중앙 네비게이션 메뉴 */}
+          <nav className="flex items-center justify-center space-x-8">
             <Link 
-              href="/predictions" 
-              className="text-foreground hover:text-blue-600 transition-colors"
+              href="/beyond-bias" 
+              className="text-foreground hover:text-blue-600 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              Predictions
+              정치 편향 극복
             </Link>
             <Link 
-              href="/analysis" 
-              className="text-foreground hover:text-blue-600 transition-colors"
+              href="/community-posts" 
+              className="text-foreground hover:text-blue-600 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              Analysis
+              정치 마실?!
             </Link>
             <Link 
-              href="/trends" 
-              className="text-foreground hover:text-blue-600 transition-colors"
+              href="/analysis-contest" 
+              className="text-foreground hover:text-blue-600 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             >
-              Trends
+              천하제일 분석대회
             </Link>
           </nav>
           
-          <div className="flex items-center space-x-4">
+          {/* 우측 인증 및 설정 버튼 */}
+          <div className="flex-1 flex items-center justify-end space-x-4">
             {renderAuthButtons()}
             <ModeToggle />
           </div>

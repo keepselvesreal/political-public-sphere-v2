@@ -107,6 +107,76 @@
   - Add A11y: ARIA labels for buttons (e.g., `aria-label="Like post"`), keyboard support.
   - Add i18n: Translate button labels and comment placeholders.
 
+#### 4-1. Comment System API Integration
+**추가 날짜: 2025년 06월 02일 11시 06분 (KST)**
+- **Tasks**:
+  - **API 구현**:
+    - `/app/api/comments/[postId]/route.ts` 완전 구현:
+      - GET: 특정 게시글의 댓글 목록 조회 (페이지네이션 지원)
+      - POST: 새 댓글 작성 (인증된 사용자만, 유효성 검사 포함)
+    - 댓글 데이터 구조: `{ _id, postId, content, authorId, authorName, createdAt }`
+    - 에러 처리: 인증 실패, 유효성 검사 실패, 서버 오류 등
+  - **프론트엔드 통합**:
+    - `CommentSection.tsx` 수정:
+      - Mock 데이터 제거하고 실제 API 연동
+      - `useSWR`로 댓글 목록 실시간 조회
+      - 댓글 작성 후 자동 새로고침 (`mutate` 사용)
+      - 로딩 상태 및 에러 상태 처리
+    - 댓글 작성 폼:
+      - 인증 상태 확인 (`useSession`)
+      - 작성 후 폼 초기화
+      - 성공/실패 토스트 메시지
+  - **데이터베이스 연동**:
+    - Comment 모델 스키마 확인 및 필요시 수정
+    - MongoDB 연결 및 CRUD 작업 구현
+    - 인덱스 최적화 (postId, createdAt)
+  - **사용자 경험 개선**:
+    - 댓글 작성 중 로딩 스피너
+    - 실시간 댓글 개수 업데이트
+    - 댓글 작성 시간 표시 (상대 시간)
+    - 빈 댓글 목록 상태 메시지
+
+#### 4-2. Comment Voting and Deletion System
+**추가 날짜**: 2025년 06월 02일 11시 35분 (KST)
+
+### 목표
+- 댓글에 좋아요/비추천 투표 기능 구현
+- 댓글 작성자가 본인 댓글을 삭제할 수 있는 기능 구현
+- 중첩 댓글 구조를 고려한 스마트 삭제 로직 구현
+
+### 세부 작업
+1. **CommentVote 모델 설계**
+   - 사용자별 댓글 투표 데이터 관리
+   - 중복 투표 방지 로직
+   - 투표 토글 기능 (좋아요 ↔ 비추천 ↔ 취소)
+
+2. **투표 API 구현**
+   - POST /api/comments/[commentId]/vote: 투표 처리
+   - GET /api/comments/[commentId]/vote: 투표 현황 조회
+   - 자신의 댓글 투표 방지
+
+3. **댓글 삭제 API 구현**
+   - DELETE /api/comments/[commentId]: 댓글 삭제
+   - 스마트 삭제: 자식 댓글이 있으면 내용만 삭제, 없으면 완전 삭제
+   - 작성자 권한 검증
+
+4. **프론트엔드 UI 개선**
+   - 좋아요/비추천 버튼 추가
+   - 투표 상태 시각적 표시 (활성화된 버튼 하이라이트)
+   - 삭제 버튼 (본인 댓글에만 표시)
+   - 삭제된 댓글 스타일링
+
+5. **TDD 테스트 확장**
+   - 투표 기능 테스트
+   - 삭제 기능 테스트
+   - 권한 검증 테스트
+
+### 기술적 고려사항
+- 투표 데이터 일관성 보장
+- 삭제된 댓글의 중첩 구조 유지
+- 실시간 UI 업데이트 (SWR 활용)
+- 사용자 경험 최적화 (로딩 상태, 에러 처리)
+
 #### 5. Frontend - Post Creation Page
 - **Tasks**:
   - Create `/app/write/page.tsx`:

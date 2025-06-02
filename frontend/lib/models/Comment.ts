@@ -7,7 +7,7 @@
 - 스태틱 메서드: 댓글 트리 구조 생성
 */
 
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IComment extends Document {
   postId: string;
@@ -17,6 +17,18 @@ export interface IComment extends Document {
   depth: number; // 댓글 깊이 (0: 최상위, 1: 대댓글, 2: 대대댓글...)
   createdAt: Date;
   replies?: IComment[]; // 가상 필드
+}
+
+// 스태틱 메서드들의 타입 정의
+interface ICommentModel extends Model<IComment> {
+  getCommentTree(postId: string, page?: number, limit?: number): Promise<any[]>;
+  getRepliesRecursively(parentId: string): Promise<any[]>;
+  createComment(commentData: {
+    postId: string;
+    content: string;
+    authorId: string;
+    parentId?: string;
+  }): Promise<IComment>;
 }
 
 const CommentSchema: Schema = new Schema({
@@ -86,6 +98,7 @@ CommentSchema.statics.getCommentTree = async function(postId: string, page: numb
   // 각 최상위 댓글에 대해 모든 자식 댓글들을 재귀적으로 조회
   const commentsWithReplies = await Promise.all(
     rootComments.map(async (comment: any) => {
+      // @ts-ignore
       const replies = await this.getRepliesRecursively(comment._id.toString());
       return { ...comment, replies };
     })
@@ -103,6 +116,7 @@ CommentSchema.statics.getRepliesRecursively = async function(parentId: string): 
   // 각 자식 댓글에 대해서도 재귀적으로 자식들을 조회
   const repliesWithChildren = await Promise.all(
     replies.map(async (reply: any) => {
+      // @ts-ignore
       const childReplies = await this.getRepliesRecursively(reply._id.toString());
       return { ...reply, replies: childReplies };
     })
@@ -145,4 +159,4 @@ CommentSchema.statics.createComment = async function(commentData: {
   return await newComment.save();
 };
 
-export default mongoose.models.Comment || mongoose.model<IComment>('Comment', CommentSchema); 
+export default (mongoose.models.Comment as ICommentModel) || mongoose.model<IComment, ICommentModel>('Comment', CommentSchema); 

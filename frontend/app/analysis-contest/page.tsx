@@ -1,6 +1,6 @@
 /*
 목차:
-- 메인 페이지 (게시글 목록)
+- 천하제일 분석대회 메인 페이지 (기존 메인 페이지 내용)
 - SWR infinite를 활용한 무한 스크롤
 - 반응형 그리드 레이아웃 (데스크톱 3x3, 모바일 1열)
 - 정렬 필터 및 접근성 지원
@@ -13,9 +13,9 @@ import React, { useState, useCallback, useMemo } from 'react';
 import useSWRInfinite from 'swr/infinite';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
-import SortFilter, { SortOption, SortOrder } from '@/components/SortFilter';
-import PostCard, { PostCardProps } from '@/components/PostCard';
-import InfiniteScrollWrapper from '@/components/InfiniteScrollWrapper';
+import SortFilter, { SortOption, SortOrder } from '@/components/analysis/SortFilter';
+import PostCard, { PostCardProps } from '@/components/analysis/PostCard';
+import InfiniteScrollWrapper from '@/components/analysis/InfiniteScrollWrapper';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';

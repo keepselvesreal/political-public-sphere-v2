@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import PostForm from '@/components/PostForm';
+import PostForm from '@/components/analysis/PostForm';
 import { useToast } from '@/hooks/use-toast';
 
 // PostForm에서 사용하는 타입 정의
