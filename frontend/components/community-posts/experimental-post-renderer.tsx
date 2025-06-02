@@ -157,7 +157,8 @@ export function ExperimentalPostRenderer({
   const renderImage = (content: ExperimentalContent) => {
     const { data } = content;
     
-    if (!data.src && !data.data_original && !data.original_src) return null;
+    // 안전한 데이터 접근
+    if (!data || (!data.src && !data.data_original && !data.original_src)) return null;
 
     // 이미지 소스 우선순위: data_original > src > original_src
     let imageSrc = '';
@@ -255,7 +256,13 @@ export function ExperimentalPostRenderer({
   const renderText = (content: ExperimentalContent) => {
     const { data } = content;
     
-    if (!data.text || data.text.trim().length === 0) return null;
+    // 안전한 데이터 접근
+    if (!data || (!data.text && !data.innerHTML)) return null;
+    
+    const textContent = data.text || '';
+    if (textContent.trim().length === 0 && (!data.innerHTML || data.innerHTML.trim().length === 0)) {
+      return null;
+    }
 
     const Tag = (data.tag || 'p') as keyof JSX.IntrinsicElements;
     
@@ -279,7 +286,7 @@ export function ExperimentalPostRenderer({
     const inlineStyles = parseStyle(data.style || '');
     
     // innerHTML이 있으면 dangerouslySetInnerHTML 사용, 없으면 일반 텍스트 사용
-    if (data.innerHTML && data.innerHTML.trim() !== data.text.trim()) {
+    if (data.innerHTML && data.innerHTML.trim() !== textContent.trim()) {
       return (
         <Tag
           key={`content-${content.order}`}
@@ -297,7 +304,7 @@ export function ExperimentalPostRenderer({
           className={`${data.class || ''} mb-4 leading-relaxed`}
           style={inlineStyles}
         >
-          {data.text}
+          {textContent}
         </Tag>
       );
     }
@@ -307,7 +314,8 @@ export function ExperimentalPostRenderer({
   const renderVideo = (content: ExperimentalContent) => {
     const { data } = content;
     
-    if (!data.src) return null;
+    // 안전한 데이터 접근
+    if (!data || !data.src) return null;
 
     // URL 정규화 (//로 시작하는 URL을 https://로 변환)
     let videoSrc = data.src;
