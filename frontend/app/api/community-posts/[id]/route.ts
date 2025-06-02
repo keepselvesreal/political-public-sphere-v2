@@ -49,24 +49,21 @@ export async function GET(
     const { id: postId } = await params;
     console.log('조회할 게시글 ID:', postId);
 
-    // 직접 MongoDB 컬렉션에서 데이터 조회
-    const collection = db.collection('fmkorea_posts');
+    // 직접 MongoDB 컬렉션에서 데이터 조회 (community_posts 컬렉션 사용)
+    const collection = db.collection('community_posts');
     
-    // MongoDB ObjectId인지 확인하고 적절한 쿼리 사용
-    let post;
+    // post_id로 검색 (새로운 CommunityPost 모델)
+    let post = await collection.findOne({ post_id: postId });
+    console.log('post_id로 검색:', postId);
     
-    // ObjectId 형태인지 확인 (24자리 16진수)
-    const isObjectId = /^[0-9a-fA-F]{24}$/.test(postId);
-    
-    if (isObjectId) {
-      // ObjectId로 검색
-      const { ObjectId } = require('mongodb');
-      post = await collection.findOne({ _id: new ObjectId(postId) });
-      console.log('ObjectId로 검색:', postId);
-    } else {
-      // post_id로 검색 (기존 방식)
-      post = await collection.findOne({ post_id: postId });
-      console.log('post_id로 검색:', postId);
+    // post_id로 찾지 못한 경우 ObjectId로도 시도
+    if (!post) {
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(postId);
+      if (isObjectId) {
+        const { ObjectId } = require('mongodb');
+        post = await collection.findOne({ _id: new ObjectId(postId) });
+        console.log('ObjectId로 검색:', postId);
+      }
     }
 
     if (!post) {
@@ -75,7 +72,7 @@ export async function GET(
           success: false,
           error: '게시글을 찾을 수 없습니다.',
           searched_id: postId,
-          search_type: isObjectId ? 'ObjectId' : 'post_id'
+          search_type: 'post_id'
         },
         { status: 404 }
       );
