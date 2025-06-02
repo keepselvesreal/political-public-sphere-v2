@@ -10,12 +10,23 @@ import NextAuth from 'next-auth'
 import Google from 'next-auth/providers/google'
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true, // 개발 환경에서 호스트 신뢰
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code"
+        }
+      }
     }),
   ],
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
     // JWT 콜백
     jwt({ token, user }) {
@@ -32,9 +43,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return session
     },
   },
-  pages: {
-    signIn: '/auth/signin',
-  },
+  debug: process.env.NODE_ENV === "development", // 개발 환경에서 디버그 활성화
 })
 
 // 타입 확장
