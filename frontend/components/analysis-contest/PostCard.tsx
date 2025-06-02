@@ -74,7 +74,7 @@ const PostCard = React.memo(function PostCard({
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      window.location.href = `/post/${id}`;
+      window.location.href = `/analysis-contest/analysis-post/${id}`;
     }
   };
   
@@ -83,7 +83,7 @@ const PostCard = React.memo(function PostCard({
   const mockViews = Math.floor(Math.random() * 1000);
   
   return (
-    <Link href={`/post/${id}`} className="block">
+    <Link href={`/analysis-contest/analysis-post/${id}`} className="block">
       <Card 
         className="h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:scale-[1.02] cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
         role="article"
