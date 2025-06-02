@@ -569,7 +569,7 @@ class ImprovedRuliwebScraper:
     
     async def extract_image_data(self, img_element, parent_link: Optional[str], order: int) -> Optional[Dict]:
         """
-        이미지 데이터 추출 (개선된 버전)
+        이미지 데이터 추출 (FM코리아와 동일한 구조)
         
         Args:
             img_element: 이미지 요소
@@ -577,7 +577,7 @@ class ImprovedRuliwebScraper:
             order: 순서
         
         Returns:
-            Dict: 이미지 데이터
+            Dict: 이미지 데이터 (FM코리아 구조)
         """
         try:
             src = await img_element.get_attribute('src')
@@ -592,18 +592,30 @@ class ImprovedRuliwebScraper:
             
             # 이미지 속성 추출
             alt = await img_element.get_attribute('alt') or ''
-            width = await img_element.get_attribute('width') or 'auto'
-            height = await img_element.get_attribute('height') or 'auto'
+            width = await img_element.get_attribute('width') or ''
+            height = await img_element.get_attribute('height') or ''
+            style = await img_element.get_attribute('style') or ''
+            class_name = await img_element.get_attribute('class') or ''
+            title = await img_element.get_attribute('title') or ''
             
+            # FM코리아와 동일한 중첩 구조
             return {
                 'type': 'image',
                 'order': order,
-                'src': src,
-                'alt': alt,
-                'width': width,
-                'height': height,
-                'link': parent_link,
-                'extracted_at': datetime.now(self.kst).isoformat()
+                'data': {
+                    'src': src,
+                    'alt': alt,
+                    'width': width,
+                    'height': height,
+                    'href': parent_link or '',
+                    'data_original': src,  # 루리웹은 원본 이미지 직접 제공
+                    'original_src': src,
+                    'style': style,
+                    'class': class_name,
+                    'title': title,
+                    'link_class': '',
+                    'link_rel': ''
+                }
             }
             
         except Exception as e:
@@ -612,42 +624,70 @@ class ImprovedRuliwebScraper:
     
     async def extract_video_data(self, video_element, order: int) -> Optional[Dict]:
         """
-        비디오 데이터 추출
+        비디오 데이터 추출 (FM코리아와 동일한 구조)
         
         Args:
             video_element: 비디오 요소
             order: 순서
         
         Returns:
-            Dict: 비디오 데이터
+            Dict: 비디오 데이터 (FM코리아 구조)
         """
         try:
             tag_name = await video_element.evaluate('el => el.tagName.toLowerCase()')
             
             if tag_name == 'video':
                 src = await video_element.get_attribute('src')
-                poster = await video_element.get_attribute('poster')
+                poster = await video_element.get_attribute('poster') or ''
+                width = await video_element.get_attribute('width') or ''
+                height = await video_element.get_attribute('height') or ''
                 
+                # 자동재생 속성 감지
+                autoplay = await video_element.get_attribute('autoplay') is not None
+                loop = await video_element.get_attribute('loop') is not None
+                muted = await video_element.get_attribute('muted') is not None
+                controls = await video_element.get_attribute('controls') is not None
+                preload = await video_element.get_attribute('preload') or 'metadata'
+                class_name = await video_element.get_attribute('class') or ''
+                
+                # 자동재생이면 음소거 처리 (브라우저 정책)
+                if autoplay and not muted:
+                    muted = True
+                
+                # FM코리아와 동일한 중첩 구조
                 return {
                     'type': 'video',
                     'order': order,
-                    'src': src,
-                    'poster': poster,
-                    'extracted_at': datetime.now(self.kst).isoformat()
+                    'data': {
+                        'src': src,
+                        'poster': poster,
+                        'autoplay': autoplay,
+                        'loop': loop,
+                        'muted': muted,
+                        'controls': controls,
+                        'preload': preload,
+                        'width': width,
+                        'height': height,
+                        'class': class_name
+                    }
                 }
             
             elif tag_name == 'iframe':
                 src = await video_element.get_attribute('src')
-                width = await video_element.get_attribute('width') or 'auto'
-                height = await video_element.get_attribute('height') or 'auto'
+                width = await video_element.get_attribute('width') or ''
+                height = await video_element.get_attribute('height') or ''
+                class_name = await video_element.get_attribute('class') or ''
                 
+                # FM코리아와 동일한 중첩 구조
                 return {
                     'type': 'iframe',
                     'order': order,
-                    'src': src,
-                    'width': width,
-                    'height': height,
-                    'extracted_at': datetime.now(self.kst).isoformat()
+                    'data': {
+                        'src': src,
+                        'width': width,
+                        'height': height,
+                        'class': class_name
+                    }
                 }
             
             return None
@@ -658,14 +698,14 @@ class ImprovedRuliwebScraper:
     
     async def extract_text_data(self, text_element, order: int) -> Optional[Dict]:
         """
-        텍스트 데이터 추출
+        텍스트 데이터 추출 (FM코리아와 동일한 구조)
         
         Args:
             text_element: 텍스트 요소
             order: 순서
         
         Returns:
-            Dict: 텍스트 데이터
+            Dict: 텍스트 데이터 (FM코리아 구조)
         """
         try:
             text = await text_element.inner_text()
@@ -677,15 +717,21 @@ class ImprovedRuliwebScraper:
             # 스타일 정보 추출
             style = await text_element.get_attribute('style') or ''
             class_name = await text_element.get_attribute('class') or ''
+            id_attr = await text_element.get_attribute('id') or ''
+            innerHTML = await text_element.inner_html()
             
+            # FM코리아와 동일한 중첩 구조
             return {
                 'type': 'text',
                 'order': order,
-                'text': text.strip(),
-                'tag': tag_name,
-                'style': style,
-                'class': class_name,
-                'extracted_at': datetime.now(self.kst).isoformat()
+                'data': {
+                    'tag': tag_name,
+                    'text': text.strip(),
+                    'id': id_attr,
+                    'class': class_name,
+                    'style': style,
+                    'innerHTML': innerHTML
+                }
             }
             
         except Exception as e:

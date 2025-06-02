@@ -80,7 +80,7 @@ export async function GET(
 
     console.log('게시글 발견:', post.metadata?.title || post.post_id);
 
-    // Atlas 데이터를 실험용 컴포넌트 형태로 변환
+    // Atlas 데이터를 실험용 컴포넌트 형태로 변환 (통일된 구조)
     const transformedContent = (post.content || []).map((item: any) => {
       switch (item.type) {
         case 'text':
@@ -88,8 +88,9 @@ export async function GET(
             type: 'text',
             order: item.order || 0,
             data: {
-              text: item.data?.text || item.content || '',
-              innerHTML: item.data?.innerHTML || item.html || '',
+              // 통일된 중첩 구조 사용
+              text: item.data?.text || '',
+              innerHTML: item.data?.innerHTML || '',
               tag: item.data?.tag || 'div',
               style: item.data?.style || '',
               class: item.data?.class || '',
@@ -101,13 +102,14 @@ export async function GET(
             type: 'image',
             order: item.order || 0,
             data: {
-              src: item.data?.src || item.src || '',
-              alt: item.data?.alt || item.alt || '',
-              width: item.data?.width || item.width || '',
-              height: item.data?.height || item.height || '',
-              href: item.data?.href || item.href || '',
-              data_original: item.data?.data_original || item.data_original || item.src || '',
-              original_src: item.data?.original_src || item.original_src || item.src || '',
+              // 통일된 중첩 구조 사용
+              src: item.data?.src || '',
+              alt: item.data?.alt || '',
+              width: item.data?.width || '',
+              height: item.data?.height || '',
+              href: item.data?.href || '',
+              data_original: item.data?.data_original || item.data?.src || '',
+              original_src: item.data?.original_src || item.data?.src || '',
               style: item.data?.style || '',
               class: item.data?.class || '',
               title: item.data?.title || '',
@@ -120,15 +122,28 @@ export async function GET(
             type: 'video',
             order: item.order || 0,
             data: {
-              src: item.data?.src || item.src || '',
-              poster: item.data?.poster || item.poster || '',
-              autoplay: item.data?.autoplay || item.autoplay || false,
-              loop: item.data?.loop || item.loop || false,
-              muted: item.data?.muted || item.muted || true,
-              controls: item.data?.controls !== false && item.controls !== false,
-              preload: item.data?.preload || item.preload || 'metadata',
-              width: item.data?.width || item.width || '',
-              height: item.data?.height || item.height || '',
+              // 통일된 중첩 구조 사용
+              src: item.data?.src || '',
+              poster: item.data?.poster || '',
+              autoplay: item.data?.autoplay || false,
+              loop: item.data?.loop || false,
+              muted: item.data?.muted !== false,
+              controls: item.data?.controls !== false,
+              preload: item.data?.preload || 'metadata',
+              width: item.data?.width || '',
+              height: item.data?.height || '',
+              class: item.data?.class || ''
+            }
+          };
+        case 'iframe':
+          return {
+            type: 'iframe',
+            order: item.order || 0,
+            data: {
+              // 통일된 중첩 구조 사용
+              src: item.data?.src || '',
+              width: item.data?.width || '',
+              height: item.data?.height || '',
               class: item.data?.class || ''
             }
           };
@@ -144,25 +159,26 @@ export async function GET(
       }
     });
 
-    // 댓글도 실험용 컴포넌트 형태로 변환
+    // 댓글도 실험용 컴포넌트 형태로 변환 (통일된 구조)
     const transformedComments = (post.comments || []).map((comment: any, index: number) => ({
-      comment_id: comment.id || `comment_${index}`,
+      comment_id: comment.comment_id || comment.id || `comment_${index}`,
       author: comment.author || '익명',
       content: comment.content || '',
-      date: comment.date || '',
-      level: comment.depth || 0,
+      date: comment.date || comment.created_at || '',
+      level: comment.level || comment.depth || 0,
       is_reply: comment.is_reply || false,
-      parent_comment: comment.parent_id || '',
-      vote_count: comment.like_count || 0,
-      blame_count: comment.dislike_count || 0,
+      parent_comment: comment.parent_comment || comment.parent_id || '',
+      vote_count: comment.like_count || comment.vote_count || 0,
+      blame_count: comment.dislike_count || comment.blame_count || 0,
       is_best: comment.is_best || false,
       is_author: comment.is_author || false,
-      image_url: comment.image_url || '',
+      // 루리웹 댓글 이미지 지원
+      image_url: comment.images && comment.images.length > 0 ? comment.images[0] : (comment.image_url || ''),
       image_link: comment.image_link || '',
       video_url: comment.video_url || '',
       video_autoplay: comment.video_autoplay || false,
       video_loop: comment.video_loop || false,
-      video_muted: comment.video_muted || true
+      video_muted: comment.video_muted !== false
     }));
 
     // 원본 데이터 구조 그대로 반환 (실험용 컴포넌트에서 사용)
