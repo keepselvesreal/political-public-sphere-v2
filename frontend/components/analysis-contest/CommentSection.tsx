@@ -50,7 +50,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   
   // SWR로 댓글 데이터 페칭 (중첩 구조 지원)
   const { data: commentsData, error, mutate, isLoading } = useSWR(
-    `/api/comments/${postId}`,
+    `/api/analysis-contest/comments/${postId}`,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -91,7 +91,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch(`/api/comments/${postId}`, {
+      const response = await fetch(`/api/analysis-contest/comments/${postId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +149,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch(`/api/comments/${postId}`, {
+      const response = await fetch(`/api/analysis-contest/comments/${postId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -198,7 +198,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     }
     
     try {
-      const response = await fetch(`/api/comments/vote/${commentId}`, {
+      const response = await fetch(`/api/analysis-contest/comments/vote/${commentId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -244,7 +244,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     }
     
     try {
-      const response = await fetch(`/api/comments/delete/${commentId}`, {
+      const response = await fetch(`/api/analysis-contest/comments/delete/${commentId}`, {
         method: 'DELETE',
       });
       

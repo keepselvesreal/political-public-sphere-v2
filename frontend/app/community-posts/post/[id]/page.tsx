@@ -8,7 +8,7 @@
 */
 
 import { notFound } from 'next/navigation';
-import PostDetailContent from '@/components/analysis/PostDetailContent';
+import PostDetailContent from '@/components/analysis-contest/PostDetailContent';
 import { connectDB } from '@/lib/mongoose';
 import Post from '@/lib/models/Post';
 

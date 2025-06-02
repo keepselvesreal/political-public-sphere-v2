@@ -13,8 +13,8 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import CommentSection from '@/components/analysis/CommentSection';
-import VoteButtons from '@/components/analysis/VoteButtons';
+import CommentSection from '@/components/analysis-contest/CommentSection';
+import VoteButtons from '@/components/analysis-contest/VoteButtons';
 
 // i18n 초기화
 import '@/lib/i18n';

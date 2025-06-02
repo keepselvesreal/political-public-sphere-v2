@@ -31,7 +31,7 @@ const VoteButtons = React.memo(function VoteButtons({
 
     setIsVoting(true);
     try {
-      const response = await fetch(`/api/vote/${postId}`, {
+      const response = await fetch(`/api/analysis-contest/vote/${postId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import PostForm from '@/components/analysis/PostForm';
+import PostForm from '@/components/analysis-contest/PostForm';
 import { useToast } from '@/hooks/use-toast';
 
 // PostForm에서 사용하는 타입 정의
@@ -62,7 +62,7 @@ export default function WritePage() {
         authorId: session.user.id || session.user.email || 'anonymous'
       };
 
-      const response = await fetch('/api/posts', {
+      const response = await fetch('/api/analysis-contest', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

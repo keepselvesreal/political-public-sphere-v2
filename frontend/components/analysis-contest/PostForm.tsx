@@ -20,7 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import TextEditor from '@/components/analysis/TextEditor';
+import TextEditor from '@/components/analysis-contest/TextEditor';
 
 // 폼 유효성 검사 스키마
 const postFormSchema = z.object({

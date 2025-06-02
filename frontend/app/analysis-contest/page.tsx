@@ -13,9 +13,9 @@ import React, { useState, useCallback, useMemo } from 'react';
 import useSWRInfinite from 'swr/infinite';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
-import SortFilter, { SortOption, SortOrder } from '@/components/analysis/SortFilter';
-import PostCard, { PostCardProps } from '@/components/analysis/PostCard';
-import InfiniteScrollWrapper from '@/components/analysis/InfiniteScrollWrapper';
+import SortFilter, { SortOption, SortOrder } from '@/components/analysis-contest/SortFilter';
+import PostCard, { PostCardProps } from '@/components/analysis-contest/PostCard';
+import InfiniteScrollWrapper from '@/components/analysis-contest/InfiniteScrollWrapper';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, Plus } from 'lucide-react';
 import Link from 'next/link';
@@ -93,7 +93,7 @@ export default function Home() {
     if (previousPageData && !previousPageData.pagination.hasMore) return null;
     
     const skip = pageIndex * POSTS_PER_PAGE;
-    return `/api/posts?skip=${skip}&limit=${POSTS_PER_PAGE}&sortBy=${sortBy}&order=${sortOrder}`;
+    return `/api/analysis-contest?skip=${skip}&limit=${POSTS_PER_PAGE}&sortBy=${sortBy}&order=${sortOrder}`;
   }, [sortBy, sortOrder]);
 
   // SWR infinite 훅 사용 (성능 최적화 설정)
