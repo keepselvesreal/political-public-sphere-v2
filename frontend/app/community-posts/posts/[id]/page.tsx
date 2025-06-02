@@ -6,19 +6,19 @@
 
 작성자: AI Assistant
 작성일: 2025-01-28
-최종 수정: 2025-01-28 (실험용 컴포넌트로 교체)
+최종 수정: 2025-01-28 (올바른 컴포넌트명으로 수정)
 */
 
 "use client";
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ExperimentalPostRenderer } from '@/components/community-posts/experimental-post-renderer';
+import { CommunityPostDetailRenderer } from '@/components/community-posts/community-post-detail';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 
-// 실험용 데이터 타입 (experimental-post-renderer와 동일)
-interface ExperimentalPostData {
+// 커뮤니티 게시글 데이터 타입 (experimental-post-renderer와 동일)
+interface CommunityPostData {
   post_id: string;
   post_url: string;
   scraped_at: string;
@@ -56,13 +56,13 @@ interface ExperimentalPostData {
     video_loop?: boolean;
     video_muted?: boolean;
   }>;
-  experiment_purpose: string;
+  experiment_purpose?: string;
 }
 
 export default function CommunityPostDetail() {
   const params = useParams();
   const router = useRouter();
-  const [experimentData, setExperimentData] = useState<ExperimentalPostData | null>(null);
+  const [postData, setPostData] = useState<CommunityPostData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,7 +78,7 @@ export default function CommunityPostDetail() {
         const result = await response.json();
         
         if (result.success) {
-          setExperimentData(result.data);
+          setPostData(result.data);
         } else {
           throw new Error(result.error || '게시글을 찾을 수 없습니다.');
         }
@@ -107,7 +107,7 @@ export default function CommunityPostDetail() {
     );
   }
 
-  if (error || !experimentData) {
+  if (error || !postData) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
@@ -123,8 +123,8 @@ export default function CommunityPostDetail() {
   }
 
   return (
-    <ExperimentalPostRenderer 
-      experimentData={experimentData}
+    <CommunityPostDetailRenderer 
+      postData={postData}
       showMetadata={true}
       onBack={() => router.back()}
     />
