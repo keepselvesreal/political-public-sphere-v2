@@ -51,6 +51,7 @@ export default function PreparationWritePage() {
         title: data.title.trim(),
         content: data.content.trim(),
         tags: data.tags,
+        source: data.source,
         author: {
           name: session.user.name || 'Anonymous',
           email: session.user.email || 'anonymous@example.com'

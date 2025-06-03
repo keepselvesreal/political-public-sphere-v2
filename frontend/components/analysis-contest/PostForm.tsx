@@ -34,10 +34,12 @@ const postFormSchema = z.object({
     .min(0, '득표율 격차는 0 이상이어야 합니다')
     .max(100, '득표율 격차는 100 이하여야 합니다'),
   votes: z.object({
-    candidate1: z.number().min(0).max(100),
-    candidate2: z.number().min(0).max(100),
+    leeJaeMyung: z.number().min(0).max(100),
+    kimMoonSoo: z.number().min(0).max(100),
+    leeJunSeok: z.number().min(0).max(100),
+    kwonYoungGook: z.number().min(0).max(100),
   }).refine((data) => {
-    const total = data.candidate1 + data.candidate2;
+    const total = data.leeJaeMyung + data.kimMoonSoo + data.leeJunSeok + data.kwonYoungGook;
     return Math.abs(total - 100) < 0.1; // 부동소수점 오차 고려
   }, {
     message: '득표율 합계는 100%여야 합니다',
@@ -74,8 +76,10 @@ export default function PostForm({ onSubmit, onCancel, isSubmitting = false }: P
       winner: '',
       gap: 0,
       votes: {
-        candidate1: 50,
-        candidate2: 50,
+        leeJaeMyung: 25,
+        kimMoonSoo: 25,
+        leeJunSeok: 25,
+        kwonYoungGook: 25,
       },
       keywords: [],
       content: '',
@@ -112,20 +116,28 @@ export default function PostForm({ onSubmit, onCancel, isSubmitting = false }: P
   };
 
   // 득표율 자동 조정 핸들러
-  const handleVoteChange = (candidate: 'candidate1' | 'candidate2', value: number) => {
-    const otherValue = Math.max(0, Math.min(100, 100 - value));
+  const handleVoteChange = (candidate: keyof typeof votes, value: number) => {
+    const newVotes = { ...votes };
+    newVotes[candidate] = value;
     
-    if (candidate === 'candidate1') {
-      setValue('votes', {
-        candidate1: value,
-        candidate2: otherValue,
+    // 나머지 후보들의 득표율을 비례적으로 조정
+    const otherCandidates = Object.keys(newVotes).filter(key => key !== candidate) as Array<keyof typeof votes>;
+    const remainingPercentage = 100 - value;
+    const currentOtherTotal = otherCandidates.reduce((sum, key) => sum + newVotes[key], 0);
+    
+    if (currentOtherTotal > 0) {
+      otherCandidates.forEach(key => {
+        newVotes[key] = Math.round((newVotes[key] / currentOtherTotal) * remainingPercentage * 10) / 10;
       });
     } else {
-      setValue('votes', {
-        candidate1: otherValue,
-        candidate2: value,
+      // 다른 후보들이 모두 0인 경우 균등 분배
+      const equalShare = Math.round((remainingPercentage / otherCandidates.length) * 10) / 10;
+      otherCandidates.forEach(key => {
+        newVotes[key] = equalShare;
       });
     }
+    
+    setValue('votes', newVotes);
   };
 
   return (
@@ -202,32 +214,58 @@ export default function PostForm({ onSubmit, onCancel, isSubmitting = false }: P
 
           {/* 득표율 예측 */}
           <div className="space-y-2">
-            <Label>득표율 예측 * (합계: {(votes.candidate1 + votes.candidate2).toFixed(1)}%)</Label>
+            <Label>득표율 예측 * (합계: {(votes.leeJaeMyung + votes.kimMoonSoo + votes.leeJunSeok + votes.kwonYoungGook).toFixed(1)}%)</Label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="candidate1">후보 1 득표율 (%)</Label>
+                <Label htmlFor="leeJaeMyung">이재명 득표율 (%)</Label>
                 <Input
-                  id="candidate1"
+                  id="leeJaeMyung"
                   type="number"
                   min="0"
                   max="100"
                   step="0.1"
-                  value={votes.candidate1}
-                  onChange={(e) => handleVoteChange('candidate1', Number(e.target.value))}
-                  aria-label="후보 1 득표율"
+                  value={votes.leeJaeMyung}
+                  onChange={(e) => handleVoteChange('leeJaeMyung', Number(e.target.value))}
+                  aria-label="이재명 득표율"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="candidate2">후보 2 득표율 (%)</Label>
+                <Label htmlFor="kimMoonSoo">김문수 득표율 (%)</Label>
                 <Input
-                  id="candidate2"
+                  id="kimMoonSoo"
                   type="number"
                   min="0"
                   max="100"
                   step="0.1"
-                  value={votes.candidate2}
-                  onChange={(e) => handleVoteChange('candidate2', Number(e.target.value))}
-                  aria-label="후보 2 득표율"
+                  value={votes.kimMoonSoo}
+                  onChange={(e) => handleVoteChange('kimMoonSoo', Number(e.target.value))}
+                  aria-label="김문수 득표율"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="leeJunSeok">이준석 득표율 (%)</Label>
+                <Input
+                  id="leeJunSeok"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={votes.leeJunSeok}
+                  onChange={(e) => handleVoteChange('leeJunSeok', Number(e.target.value))}
+                  aria-label="이준석 득표율"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="kwonYoungGook">권영국 득표율 (%)</Label>
+                <Input
+                  id="kwonYoungGook"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={votes.kwonYoungGook}
+                  onChange={(e) => handleVoteChange('kwonYoungGook', Number(e.target.value))}
+                  aria-label="권영국 득표율"
                 />
               </div>
             </div>

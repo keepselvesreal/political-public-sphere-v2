@@ -12,8 +12,10 @@ type PostFormData = {
   winner: string;
   gap: number;
   votes: {
-    candidate1: number;
-    candidate2: number;
+    leeJaeMyung: number;
+    kimMoonSoo: number;
+    leeJunSeok: number;
+    kwonYoungGook: number;
   };
   keywords: string[];
   content: string;

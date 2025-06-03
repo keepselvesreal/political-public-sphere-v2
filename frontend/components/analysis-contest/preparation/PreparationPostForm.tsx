@@ -2,8 +2,9 @@
 목차:
 - 천하제일 분석대회 준비 게시판 글쓰기 폼
 - CKEditor 5 적용
-- 제목, 내용, 태그 입력
+- 제목, 내용, 태그, 정보 출처 입력
 - 현대적이고 단순한 디자인
+- 마지막 수정: 2024년 12월 19일 18시 45분 (KST)
 */
 
 "use client";
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Plus } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
@@ -53,6 +55,7 @@ export interface PreparationPostFormData {
   title: string;
   content: string;
   tags: string[];
+  source: '언론사' | '유튜브' | '카더라' | '개인 생각';
 }
 
 interface PreparationPostFormProps {
@@ -69,6 +72,7 @@ export default function PreparationPostForm({
   const [title, setTitle] = useState(initialData?.title || '');
   const [content, setContent] = useState(initialData?.content || '');
   const [tags, setTags] = useState<string[]>(initialData?.tags || []);
+  const [source, setSource] = useState<'언론사' | '유튜브' | '카더라' | '개인 생각'>(initialData?.source || '언론사');
   const [newTag, setNewTag] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -89,6 +93,10 @@ export default function PreparationPostForm({
       newErrors.content = '내용을 입력해주세요.';
     } else if (content.trim().length < 10) {
       newErrors.content = '내용은 최소 10자 이상 입력해주세요.';
+    }
+
+    if (!source) {
+      newErrors.source = '정보 출처를 선택해주세요.';
     }
 
     setErrors(newErrors);
@@ -131,7 +139,8 @@ export default function PreparationPostForm({
       await onSubmit({
         title: title.trim(),
         content: content.trim(),
-        tags: tags
+        tags: tags,
+        source: source
       });
     } catch (error) {
       console.error('폼 제출 오류:', error);
@@ -170,6 +179,30 @@ export default function PreparationPostForm({
               )}
               <p className="text-xs text-muted-foreground">
                 {title.length}/100자
+              </p>
+            </div>
+
+            {/* 정보 출처 선택 */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                정보 출처 *
+              </Label>
+              <Select value={source} onValueChange={(value: '언론사' | '유튜브' | '카더라' | '개인 생각') => setSource(value)}>
+                <SelectTrigger className={errors.source ? 'border-red-500' : ''}>
+                  <SelectValue placeholder="정보 출처를 선택해주세요" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="언론사">언론사</SelectItem>
+                  <SelectItem value="유튜브">유튜브</SelectItem>
+                  <SelectItem value="카더라">카더라</SelectItem>
+                  <SelectItem value="개인 생각">개인 생각</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.source && (
+                <p className="text-sm text-red-500">{errors.source}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                정보의 출처를 정확히 선택해주세요
               </p>
             </div>
 

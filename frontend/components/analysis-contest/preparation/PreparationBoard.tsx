@@ -23,6 +23,7 @@ interface PreparationPost {
   _id: string;
   title: string;
   content: string;
+  source: '언론사' | '유튜브' | '카더라' | '개인 생각';
   author: {
     name: string;
     email: string;
@@ -135,6 +136,22 @@ export default function PreparationBoard() {
     return num.toString();
   };
 
+  // 정보 출처 배경색 반환 함수
+  const getSourceBadgeColor = (source: string): string => {
+    switch (source) {
+      case '언론사':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case '유튜브':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case '카더라':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case '개인 생각':
+        return 'bg-green-100 text-green-800 border-green-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
   // 페이지 변경 핸들러
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -218,6 +235,13 @@ export default function PreparationBoard() {
                 <div className="flex-1 min-w-0">
                   {/* 제목과 공지 배지 */}
                   <div className="flex items-center gap-2 mb-1">
+                    {/* 정보 출처 배지 (이모지 대신) */}
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs px-2 py-0.5 h-5 border ${getSourceBadgeColor(post.source)}`}
+                    >
+                      {post.source}
+                    </Badge>
                     {post.isNotice && (
                       <Badge variant="destructive" className="text-xs px-1.5 py-0.5 h-5">
                         공지
@@ -228,30 +252,24 @@ export default function PreparationBoard() {
                     </h3>
                   </div>
 
-                  {/* 메타 정보와 태그를 한 줄에 */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        <span>{post.author.name}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span>{formatDate(post.createdAt)}</span>
-                      </div>
+                  {/* 작성자와 태그를 한 줄에 */}
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <User className="h-3 w-3" />
+                      <span>{post.author.name}</span>
                     </div>
-
-                    {/* 태그 (최대 2개만 표시) */}
+                    
+                    {/* 태그 (아이디 옆으로 이동, 최대 3개만 표시) */}
                     {post.tags && post.tags.length > 0 && (
                       <div className="flex gap-1">
-                        {post.tags.slice(0, 2).map((tag, index) => (
+                        {post.tags.slice(0, 3).map((tag, index) => (
                           <Badge key={index} variant="outline" className="text-xs px-1.5 py-0 h-4">
                             #{tag}
                           </Badge>
                         ))}
-                        {post.tags.length > 2 && (
+                        {post.tags.length > 3 && (
                           <Badge variant="outline" className="text-xs px-1.5 py-0 h-4">
-                            +{post.tags.length - 2}
+                            +{post.tags.length - 3}
                           </Badge>
                         )}
                       </div>
@@ -259,19 +277,28 @@ export default function PreparationBoard() {
                   </div>
                 </div>
 
-                {/* 통계 정보 */}
-                <div className="flex items-center gap-2 text-xs text-muted-foreground ml-3">
-                  <div className="flex items-center gap-1">
-                    <Eye className="h-3 w-3" />
-                    <span>{formatNumber(post.views)}</span>
+                {/* 우측: 통계 정보와 날짜 */}
+                <div className="flex items-center gap-4 text-xs text-muted-foreground ml-3">
+                  {/* 통계 정보 */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <Eye className="h-3 w-3" />
+                      <span>{formatNumber(post.views)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <ThumbsUp className="h-3 w-3" />
+                      <span>{formatNumber(post.likes)}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <MessageSquare className="h-3 w-3" />
+                      <span>{formatNumber(post.comments)}</span>
+                    </div>
                   </div>
+                  
+                  {/* 날짜 (맨 우측으로 이동) */}
                   <div className="flex items-center gap-1">
-                    <ThumbsUp className="h-3 w-3" />
-                    <span>{formatNumber(post.likes)}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
-                    <span>{formatNumber(post.comments)}</span>
+                    <Calendar className="h-3 w-3" />
+                    <span>{formatDate(post.createdAt)}</span>
                   </div>
                 </div>
               </div>
@@ -283,7 +310,6 @@ export default function PreparationBoard() {
       {/* 빈 상태 */}
       {posts.length === 0 && !isLoading && (
         <div className="text-center py-16">
-          <div className="text-6xl mb-4">📝</div>
           <h3 className="text-xl font-semibold mb-2">아직 게시글이 없습니다</h3>
           <p className="text-muted-foreground mb-6">
             첫 번째 정보 공유 글을 작성해보세요!
