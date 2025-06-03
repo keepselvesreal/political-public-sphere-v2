@@ -198,6 +198,11 @@ class FMKoreaScraper(BaseCommunityScaper):
             except:
                 pass
             
+            # 공지글 필터링 (관리자 게시글 제외)
+            if self.is_notice_post(post_info['title'], post_info.get('author', '')):
+                logger.debug(f"공지글 제외: {post_info['title'][:30]}... (작성자: {post_info.get('author', 'Unknown')})")
+                return None
+            
             # 작성시간 추출 (선택사항)
             try:
                 date_selectors = ['.date', '.time', '.regdate']
@@ -221,91 +226,121 @@ class FMKoreaScraper(BaseCommunityScaper):
         """
         게시글 메타데이터 추출 (FM코리아 특화)
         
-        기존 extract_post_metadata 로직 완전 활용
+        실제 HTML 구조에 맞게 개선된 셀렉터 사용
         """
         try:
             metadata = {}
             
-            # 제목 추출 (기존 로직)
-            for selector in self.site_config.selectors['title']:
+            # 제목 추출 (실제 HTML 구조: h1.np_18px > span.np_18px_span)
+            title_selectors = [
+                'h1.np_18px span.np_18px_span',  # 실제 구조
+                'h1.np_18px',
+                '.np_18px_span',
+                'h1 span',
+                'h1'
+            ]
+            
+            for selector in title_selectors:
                 try:
                     title_element = await self.page.query_selector(selector)
                     if title_element:
                         title_text = await title_element.inner_text()
                         if title_text and title_text.strip():
                             metadata['title'] = title_text.strip()
+                            logger.info(f"✅ 제목 추출 성공: {title_text.strip()}")
                             break
                 except:
                     continue
             
-            # 작성자 추출 (기존 로직)
-            for selector in self.site_config.selectors['author']:
+            # 작성자 추출 (실제 HTML 구조: .btm_area .side .member_plate)
+            author_selectors = [
+                '.btm_area .side .member_plate',  # 실제 구조
+                '.member_plate',
+                '.side .member_plate',
+                '.btm_area .member_plate'
+            ]
+            
+            for selector in author_selectors:
                 try:
                     author_element = await self.page.query_selector(selector)
                     if author_element:
                         author_text = await author_element.inner_text()
                         if author_text and author_text.strip():
                             metadata['author'] = author_text.strip()
+                            logger.info(f"✅ 작성자 추출 성공: {author_text.strip()}")
                             break
                 except:
                     continue
             
-            # 작성 시간 추출 (기존 로직)
-            for selector in self.site_config.selectors['date']:
+            # 작성 시간 추출 (실제 HTML 구조: .top_area .date.m_no)
+            date_selectors = [
+                '.top_area .date.m_no',  # 실제 구조
+                '.date.m_no',
+                '.top_area .date',
+                '.date',
+                'span.date'
+            ]
+            
+            for selector in date_selectors:
                 try:
                     date_element = await self.page.query_selector(selector)
                     if date_element:
                         date_text = await date_element.inner_text()
                         if date_text and date_text.strip():
                             metadata['date'] = date_text.strip()
+                            logger.info(f"✅ 작성시간 추출 성공: {date_text.strip()}")
                             break
                 except:
                     continue
             
-            # 통계 정보 추출 (기존 로직 활용)
-            stats_selectors = [
-                '.btm_area .side.fr span',
-                '.side.fr span',
-                '.btm_area span'
-            ]
-            
+            # 통계 정보 추출 (실제 HTML 구조: .btm_area .side.fr span)
             view_count = 0
             like_count = 0
-            dislike_count = 0
             comment_count = 0
             
-            for selector in stats_selectors:
-                try:
-                    stat_elements = await self.page.query_selector_all(selector)
-                    for element in stat_elements:
-                        text = await element.inner_text()
-                        if '조회 수' in text or '조회수' in text:
-                            numbers = re.findall(r'\d+', text)
-                            if numbers:
-                                view_count = int(numbers[-1])
-                        elif '추천 수' in text or '추천수' in text or '추천' in text:
-                            numbers = re.findall(r'\d+', text)
-                            if numbers:
-                                like_count = int(numbers[-1])
-                        elif '비추천' in text or '반대' in text or '싫어요' in text:
-                            numbers = re.findall(r'\d+', text)
-                            if numbers:
-                                dislike_count = int(numbers[-1])
-                        elif '댓글' in text:
-                            numbers = re.findall(r'\d+', text)
-                            if numbers:
-                                comment_count = int(numbers[-1])
-                    break
-                except:
-                    continue
+            try:
+                # 조회수, 추천수, 댓글수가 포함된 영역
+                stats_area = await self.page.query_selector('.btm_area .side.fr')
+                if stats_area:
+                    stats_text = await stats_area.inner_text()
+                    logger.debug(f"통계 영역 텍스트: {stats_text}")
+                    
+                    # 조회수 추출
+                    view_match = re.search(r'조회\s*수?\s*(\d+)', stats_text)
+                    if view_match:
+                        view_count = int(view_match.group(1))
+                    
+                    # 추천수 추출
+                    like_match = re.search(r'추천\s*수?\s*(\d+)', stats_text)
+                    if like_match:
+                        like_count = int(like_match.group(1))
+                    
+                    # 댓글수 추출
+                    comment_match = re.search(r'댓글\s*(\d+)', stats_text)
+                    if comment_match:
+                        comment_count = int(comment_match.group(1))
+                        
+                    logger.info(f"✅ 통계 추출 성공 - 조회:{view_count}, 추천:{like_count}, 댓글:{comment_count}")
+            except Exception as e:
+                logger.debug(f"통계 정보 추출 실패: {e}")
             
-            metadata.update({
-                'view_count': view_count,
-                'like_count': like_count,
-                'dislike_count': dislike_count,
-                'comment_count': comment_count
-            })
+            # 추가로 포텐/방출 버튼에서 추천수 확인
+            try:
+                vote_element = await self.page.query_selector('.fm_vote .new_voted_count')
+                if vote_element:
+                    vote_text = await vote_element.inner_text()
+                    if vote_text and vote_text.strip().isdigit():
+                        like_count = int(vote_text.strip())
+                        logger.info(f"✅ 포텐 버튼에서 추천수 추출: {like_count}")
+            except:
+                pass
             
+            metadata['view_count'] = view_count
+            metadata['like_count'] = like_count
+            metadata['dislike_count'] = 0  # 에펨코리아는 비추천 수가 별도로 표시되지 않음
+            metadata['comment_count'] = comment_count
+            
+            logger.info(f"✅ FM코리아 메타데이터 추출 완료: {metadata}")
             return metadata
             
         except Exception as e:
@@ -316,15 +351,23 @@ class FMKoreaScraper(BaseCommunityScaper):
         """
         게시글 본문 내용 순서대로 추출 (FM코리아 특화)
         
-        기존 extract_content_in_order 로직 완전 활용
+        실제 HTML 구조: article .xe_content
         """
         try:
             content_list: List[Dict] = []
             order = 0
             
-            # 본문 컨테이너 찾기 (기존 로직)
+            # 본문 컨테이너 찾기 (실제 HTML 구조)
+            article_selectors = [
+                'article .xe_content',  # 실제 구조
+                '.xe_content',
+                'article',
+                '.rd_body .xe_content',
+                '.document_content'
+            ]
+            
             article_element = None
-            for selector in self.site_config.selectors['post_container']:
+            for selector in article_selectors:
                 try:
                     element = await self.page.query_selector(selector)
                     if element:
@@ -338,6 +381,13 @@ class FMKoreaScraper(BaseCommunityScaper):
                 logger.warning("⚠️ FM코리아 게시글 본문 컨테이너를 찾을 수 없습니다.")
                 return []
             
+            # 본문 내용 미리보기
+            try:
+                content_preview = await article_element.inner_text()
+                logger.info(f"📄 본문 내용 미리보기: {content_preview[:100]}...")
+            except:
+                pass
+            
             # 기존 extract_elements_improved 로직 사용
             order = await self.extract_elements_improved(article_element, content_list, order)
             
@@ -350,89 +400,189 @@ class FMKoreaScraper(BaseCommunityScaper):
     
     async def extract_elements_improved(self, parent_element, content_list: List[Dict], order_start: int) -> int:
         """
-        개선된 요소 추출 (기존 로직 완전 활용)
+        개선된 요소 추출 (에펨코리아 특화)
         
-        기존 fmkorea_scraper.py의 extract_elements_improved 로직을 그대로 사용
+        빈 요소와 텍스트 노드를 포함한 모든 콘텐츠를 순서대로 추출
         """
-        current_order = order_start
-        processed_images = set()  # 처리된 이미지 src 추적
-        
         try:
-            # 직접 자식 요소들을 순서대로 처리
-            child_elements = await parent_element.query_selector_all('> *')
+            order = order_start
             
-            for element in child_elements:
+            # 직접 자식 요소들을 순서대로 처리 (중첩된 자식 제외)
+            direct_children = await parent_element.query_selector_all(':scope > *')
+            
+            processed_images = set()  # 중복 이미지 방지
+            
+            logger.info(f"🔍 에펨코리아 직접 자식 요소 개수: {len(direct_children)}")
+            
+            for i, element in enumerate(direct_children):
                 try:
                     tag_name = await element.evaluate('el => el.tagName.toLowerCase()')
+                    element_text = await element.inner_text()
+                    element_html = await element.inner_html()
                     
-                    # 1. 링크 내부 이미지 처리 (a.highslide > img)
-                    if tag_name == 'a':
-                        href = await element.get_attribute('href')
-                        class_name = await element.get_attribute('class') or ''
+                    logger.debug(f"요소 {i+1}: <{tag_name}> - 텍스트: '{element_text}' - HTML: '{element_html[:100]}...'")
+                    
+                    # 이미지 처리
+                    if tag_name == 'img':
+                        img_src = await element.get_attribute('src')
+                        if img_src and img_src not in processed_images:
+                            processed_images.add(img_src)
+                            
+                            # 이미지 링크 찾기
+                            parent_link = await element.evaluate('''
+                                el => {
+                                    let parent = el.parentElement;
+                                    while (parent && parent.tagName.toLowerCase() !== 'a') {
+                                        parent = parent.parentElement;
+                                    }
+                                    return parent ? parent.href : null;
+                                }
+                            ''')
+                            
+                            image_data = await self.extract_image_data(element, parent_link, order)
+                            if image_data:
+                                content_list.append(image_data)
+                                order += 1
+                                logger.debug(f"✅ 이미지 추가: {img_src}")
+                    
+                    # 이미지를 포함한 요소 처리
+                    elif tag_name in ['div', 'p', 'span']:
+                        # 내부에 이미지가 있는지 확인
+                        inner_images = await element.query_selector_all('img')
                         
-                        # highslide 클래스가 있는 링크만 처리
-                        if 'highslide' in class_name:
-                            img_elements = await element.query_selector_all('img')
-                            for img in img_elements:
-                                src = await img.get_attribute('src')
-                                data_original = await img.get_attribute('data-original')
-                                image_src = data_original or src
-                                
-                                if image_src and image_src not in processed_images:
-                                    img_data = await self.extract_image_data(element, img, current_order)
-                                    if img_data:
-                                        content_list.append(img_data)
-                                        processed_images.add(image_src)
-                                        current_order += 1
-                    
-                    # 2. 독립적인 이미지 처리
-                    elif tag_name == 'img':
-                        src = await element.get_attribute('src')
-                        data_original = await element.get_attribute('data-original')
-                        image_src = data_original or src
+                        if inner_images:
+                            # 이미지가 있는 경우 이미지들을 추출
+                            for img in inner_images:
+                                img_src = await img.get_attribute('src')
+                                if img_src and img_src not in processed_images:
+                                    processed_images.add(img_src)
+                                    
+                                    # 이미지 링크 찾기
+                                    parent_link = await img.evaluate('''
+                                        el => {
+                                            let parent = el.parentElement;
+                                            while (parent && parent.tagName.toLowerCase() !== 'a') {
+                                                parent = parent.parentElement;
+                                            }
+                                            return parent ? parent.href : null;
+                                        }
+                                    ''')
+                                    
+                                    image_data = await self.extract_image_data(img, parent_link, order)
+                                    if image_data:
+                                        content_list.append(image_data)
+                                        order += 1
+                                        logger.debug(f"✅ 내부 이미지 추가: {img_src}")
                         
-                        if image_src and image_src not in processed_images:
-                            img_data = await self.extract_image_data(None, element, current_order)
-                            if img_data:
-                                content_list.append(img_data)
-                                processed_images.add(image_src)
-                                current_order += 1
+                        # 텍스트 내용이 있는 경우 텍스트도 추출
+                        if element_text and element_text.strip():
+                            text_data = await self.extract_text_data(element, order)
+                            if text_data:
+                                content_list.append(text_data)
+                                order += 1
+                                logger.debug(f"✅ 텍스트 추가: {element_text[:50]}...")
+                        
+                        # 텍스트가 없어도 의미있는 HTML이 있으면 추가 (예: <br>, 빈 div 등)
+                        elif element_html and element_html.strip():
+                            # br 태그나 빈 div도 레이아웃상 의미가 있을 수 있음
+                            if tag_name in ['br'] or 'br' in element_html.lower():
+                                text_data = {
+                                    'type': 'text',
+                                    'order': order,
+                                    'data': {
+                                        'tag': tag_name,
+                                        'text': '\n',  # 줄바꿈으로 처리
+                                        'id': await element.get_attribute('id') or '',
+                                        'class': await element.get_attribute('class') or '',
+                                        'style': await element.get_attribute('style') or '',
+                                        'innerHTML': element_html
+                                    }
+                                }
+                                content_list.append(text_data)
+                                order += 1
+                                logger.debug(f"✅ 줄바꿈 요소 추가: <{tag_name}>")
                     
-                    # 3. 동영상 처리
-                    elif tag_name == 'video':
-                        video_data = await self.extract_video_data(element, current_order)
+                    # 비디오 처리
+                    elif tag_name in ['video', 'iframe']:
+                        video_data = await self.extract_video_data(element, order)
                         if video_data:
                             content_list.append(video_data)
-                            current_order += 1
+                            order += 1
+                            logger.debug(f"✅ 비디오 추가: <{tag_name}>")
                     
-                    # 4. 텍스트 요소 처리
-                    elif tag_name in ['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br']:
-                        if tag_name == 'br':
-                            continue
-                            
-                        # 하위에 이미지나 비디오가 있는지 확인
-                        has_media = await element.query_selector('img, video, a.highslide')
-                        if not has_media:
-                            text_content = await element.evaluate('el => el.textContent?.trim()')
-                            if text_content and len(text_content.strip()) > 0:
-                                if "Video 태그를 지원하지 않는 브라우저입니다" not in text_content:
-                                    text_data = await self.extract_text_data(element, current_order)
-                                    if text_data:
-                                        content_list.append(text_data)
-                                        current_order += 1
-                        else:
-                            # 미디어가 있는 요소는 재귀적으로 처리
-                            current_order = await self.extract_elements_improved(element, content_list, current_order)
+                    # 기타 텍스트 요소 처리
+                    elif tag_name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 'b', 'i']:
+                        if element_text and element_text.strip():
+                            text_data = await self.extract_text_data(element, order)
+                            if text_data:
+                                content_list.append(text_data)
+                                order += 1
+                                logger.debug(f"✅ 제목/강조 텍스트 추가: {element_text[:50]}...")
                 
                 except Exception as e:
-                    logger.debug(f"요소 처리 실패: {e}")
+                    logger.debug(f"요소 처리 중 오류 (무시됨): {e}")
                     continue
             
-            return current_order
+            # 추가로 텍스트 노드도 확인 (JavaScript로)
+            try:
+                text_nodes = await parent_element.evaluate('''
+                    el => {
+                        const walker = document.createTreeWalker(
+                            el,
+                            NodeFilter.SHOW_TEXT,
+                            null,
+                            false
+                        );
+                        
+                        const textNodes = [];
+                        let node;
+                        while (node = walker.nextNode()) {
+                            const text = node.textContent.trim();
+                            if (text && text.length > 0) {
+                                textNodes.push(text);
+                            }
+                        }
+                        return textNodes;
+                    }
+                ''')
+                
+                logger.debug(f"🔍 추가 텍스트 노드들: {text_nodes}")
+                
+                # 아직 추출되지 않은 텍스트가 있으면 추가
+                for text_node in text_nodes:
+                    # 이미 추출된 텍스트인지 확인
+                    already_extracted = any(
+                        item.get('data', {}).get('text', '') == text_node 
+                        for item in content_list 
+                        if item.get('type') == 'text'
+                    )
+                    
+                    if not already_extracted and len(text_node) > 2:  # 의미있는 텍스트만
+                        text_data = {
+                            'type': 'text',
+                            'order': order,
+                            'data': {
+                                'tag': 'text_node',
+                                'text': text_node,
+                                'id': '',
+                                'class': '',
+                                'style': '',
+                                'innerHTML': text_node
+                            }
+                        }
+                        content_list.append(text_data)
+                        order += 1
+                        logger.debug(f"✅ 추가 텍스트 노드: {text_node[:50]}...")
+                        
+            except Exception as e:
+                logger.debug(f"텍스트 노드 추출 실패: {e}")
+            
+            logger.info(f"✅ 에펨코리아 요소 추출 완료: {order - order_start}개 추가")
+            return order
             
         except Exception as e:
-            logger.error(f"💥 FM코리아 요소 추출 실패: {e}")
-            return current_order
+            logger.error(f"💥 에펨코리아 요소 추출 실패: {e}")
+            return order_start
     
     async def extract_image_data(self, link_element, img_element, order: int) -> Optional[Dict]:
         """이미지 데이터 추출 (기존 로직 완전 활용)"""
@@ -560,28 +710,44 @@ class FMKoreaScraper(BaseCommunityScaper):
     
     async def extract_comments_data(self) -> List[Dict]:
         """
-        댓글 데이터 추출 (FM코리아 특화)
+        댓글 데이터 추출 (FM코리아 특화, 실제 HTML 구조 기반)
         
-        기존 extract_comments_data 로직 완전 활용
+        실제 HTML 구조: .fdb_lst_ul > .fdb_itm
         """
         try:
             comments = []
             
-            # 댓글 컨테이너 확인
-            comment_elements = []
-            for selector in self.site_config.selectors['comments']:
+            # 댓글 컨테이너 확인 (실제 HTML 구조)
+            comment_container_selectors = [
+                '.fdb_lst_ul',  # 실제 구조
+                '.fdb_lst',
+                '#cmtPosition .fdb_lst_ul',
+                '.comment_list'
+            ]
+            
+            comment_wrapper = None
+            for selector in comment_container_selectors:
                 try:
-                    elements = await self.page.query_selector_all(selector)
-                    if elements:
-                        comment_elements = elements
-                        logger.info(f"✅ FM코리아 댓글 요소 발견: {len(elements)}개 ({selector})")
+                    element = await self.page.query_selector(selector)
+                    if element:
+                        comment_wrapper = element
+                        logger.info(f"✅ FM코리아 댓글 컨테이너 발견: {selector}")
                         break
                 except:
                     continue
             
-            if not comment_elements:
+            if not comment_wrapper:
                 logger.info("📝 FM코리아 댓글이 없습니다.")
                 return []
+            
+            # 댓글 요소들 추출 (실제 HTML 구조: .fdb_itm)
+            comment_elements = await comment_wrapper.query_selector_all('.fdb_itm')
+            
+            if not comment_elements:
+                logger.warning("⚠️ FM코리아 댓글 요소를 찾을 수 없습니다.")
+                return []
+            
+            logger.info(f"✅ FM코리아 댓글 요소 발견: {len(comment_elements)}개")
             
             # 각 댓글 요소 처리
             for i, comment_element in enumerate(comment_elements):
@@ -589,6 +755,7 @@ class FMKoreaScraper(BaseCommunityScaper):
                     comment_data = await self.extract_single_comment_improved(comment_element, i)
                     if comment_data:
                         comments.append(comment_data)
+                        logger.debug(f"댓글 추출: {comment_data['author']} - {comment_data['content'][:50]}...")
                 except Exception as e:
                     logger.warning(f"⚠️ FM코리아 댓글 {i+1} 추출 실패: {e}")
                     continue
@@ -601,32 +768,51 @@ class FMKoreaScraper(BaseCommunityScaper):
             return []
     
     async def extract_single_comment_improved(self, comment_element, index: int) -> Optional[Dict]:
-        """개별 댓글 추출 (기존 로직 활용)"""
+        """
+        개별 댓글 추출 (실제 HTML 구조 기반)
+        
+        실제 HTML 구조:
+        - 댓글 ID: li#comment_8468493522
+        - 작성자: .meta .member_plate
+        - 내용: .comment-content .xe_content
+        - 시간: .meta .date
+        - 추천수: .vote .voted_count
+        """
         try:
-            # 댓글 ID 추출
+            # 댓글 ID 추출 (실제 구조: li#comment_8468493522)
             comment_id = await comment_element.get_attribute('id')
             if not comment_id:
                 comment_id = f'comment_{index}'
             
-            # 작성자 추출
+            # 대댓글 여부 확인 (실제 구조: .re 클래스와 margin-left 스타일)
+            is_reply = False
+            try:
+                class_attr = await comment_element.get_attribute('class') or ''
+                style_attr = await comment_element.get_attribute('style') or ''
+                if 're' in class_attr or 'margin-left' in style_attr:
+                    is_reply = True
+            except:
+                pass
+            
+            # 작성자 추출 (실제 구조: .meta .member_plate)
             author = '익명'
             try:
-                author_element = await comment_element.query_selector('.member_plate')
+                author_element = await comment_element.query_selector('.meta .member_plate')
                 if author_element:
                     author_text = await author_element.inner_text()
                     if author_text and author_text.strip():
                         author = author_text.strip()
+                        logger.debug(f"작성자 추출: {author}")
             except:
                 pass
             
-            # 댓글 내용 추출
+            # 댓글 내용 추출 (실제 구조: .comment-content .xe_content)
             content = ''
             try:
                 content_selectors = [
-                    '.comment-content .xe_content',
+                    '.comment-content .xe_content',  # 실제 구조
                     '.xe_content',
-                    '.comment-content',
-                    '.fdb_itm_content'
+                    '.comment-content'
                 ]
                 
                 for selector in content_selectors:
@@ -635,47 +821,50 @@ class FMKoreaScraper(BaseCommunityScaper):
                         content_text = await content_element.inner_text()
                         if content_text and content_text.strip():
                             content = content_text.strip()
+                            logger.debug(f"댓글 내용 추출: {content[:50]}...")
                             break
             except:
                 pass
             
-            # 작성 시간 추출
+            # 작성 시간 추출 (실제 구조: .meta .date)
             date = ''
             try:
-                date_element = await comment_element.query_selector('.meta .date, .date')
+                date_element = await comment_element.query_selector('.meta .date')
                 if date_element:
                     date_text = await date_element.inner_text()
                     if date_text and date_text.strip():
                         date = date_text.strip()
+                        logger.debug(f"작성시간 추출: {date}")
             except:
                 pass
             
-            # 추천/비추천 수 추출
+            # 추천/비추천 수 추출 (실제 구조: .vote .voted_count, .vote .blamed_count)
             like_count = 0
             dislike_count = 0
             
             try:
-                # 추천수
-                voted_selectors = ['.voted_count', '.vote_up .count', '.like_count']
-                for selector in voted_selectors:
-                    voted_element = await comment_element.query_selector(selector)
-                    if voted_element:
-                        voted_text = await voted_element.inner_text()
-                        if voted_text and voted_text.strip().isdigit():
-                            like_count = int(voted_text.strip())
-                            break
+                # 추천수 (실제 구조: .vote .voted_count)
+                voted_element = await comment_element.query_selector('.vote .voted_count')
+                if voted_element:
+                    voted_text = await voted_element.inner_text()
+                    if voted_text and voted_text.strip().isdigit():
+                        like_count = int(voted_text.strip())
+                        logger.debug(f"추천수 추출: {like_count}")
                 
-                # 비추천수
-                blamed_selectors = ['.blamed_count', '.vote_down .count', '.dislike_count']
-                for selector in blamed_selectors:
-                    blamed_element = await comment_element.query_selector(selector)
-                    if blamed_element:
-                        blamed_text = await blamed_element.inner_text()
-                        if blamed_text and blamed_text.strip().isdigit():
-                            dislike_count = int(blamed_text.strip())
-                            break
+                # 비추천수 (실제 구조: .vote .blamed_count)
+                blamed_element = await comment_element.query_selector('.vote .blamed_count')
+                if blamed_element:
+                    blamed_text = await blamed_element.inner_text()
+                    if blamed_text and blamed_text.strip().isdigit():
+                        dislike_count = int(blamed_text.strip())
+                        logger.debug(f"비추천수 추출: {dislike_count}")
             except:
                 pass
+            
+            # 내용이 없는 댓글은 제외
+            if not content:
+                logger.debug(f"내용이 없는 댓글 제외: {comment_id}")
+                return None
             
             comment_data = {
                 'id': comment_id,
@@ -684,7 +873,7 @@ class FMKoreaScraper(BaseCommunityScaper):
                 'date': date,
                 'like_count': like_count,
                 'dislike_count': dislike_count,
-                'is_reply': False,  # 대댓글 구분 로직 추가 가능
+                'is_reply': is_reply,
                 'is_best': False   # 베스트 댓글 구분 로직 추가 가능
             }
             

@@ -1,12 +1,14 @@
 /*
 목차:
-- TextEditor 컴포넌트 (라인 1-222)
+- TextEditor 컴포넌트 (라인 1-222) - 백업 파일
   - React 19 완전 호환 마크다운 에디터
   - 기본 포맷팅 버튼 제공 (굵게, 기울임, 제목, 목록, 인용, 링크)
   - 실시간 미리보기 기능
   - 키보드 단축키 지원 (Ctrl+B, Ctrl+I)
   - 다크모드 지원
   - A11y 지원: 버튼 title 속성, 키보드 네비게이션
+  
+  ⚠️ 이 파일은 CKEditor 5로 교체되어 더 이상 사용되지 않습니다.
 */
 
 "use client";
@@ -222,4 +224,4 @@ export default function TextEditor({ value, onChange }: TextEditorProps) {
       </div>
     </div>
   );
-}
+} 

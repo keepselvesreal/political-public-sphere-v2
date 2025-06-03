@@ -5,6 +5,7 @@
   - 유효성 검사: 제목(100자), 키워드(최대 5개), votes 합계(100%)
   - A11y 지원: ARIA 라벨, 키보드 네비게이션
   - i18n 지원: 다국어 라벨 및 플레이스홀더
+  - CKEditor 5 통합
 */
 
 "use client";
@@ -20,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import TextEditor from '@/components/analysis-contest/TextEditor';
+import CKEditor5TextEditor from '@/components/analysis-contest/CKEditor5TextEditor';
 
 // 폼 유효성 검사 스키마
 const postFormSchema = z.object({
@@ -292,9 +293,10 @@ export default function PostForm({ onSubmit, onCancel, isSubmitting = false }: P
               name="content"
               control={control}
               render={({ field }) => (
-                <TextEditor 
+                <CKEditor5TextEditor 
                   value={field.value} 
                   onChange={field.onChange}
+                  placeholder="선거 분석 내용을 작성해주세요..."
                 />
               )}
             />

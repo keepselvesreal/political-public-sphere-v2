@@ -266,6 +266,59 @@ class BaseCommunityScaper(ABC):
             return urljoin(self.site_config.base_url, url)
         return url
     
+    def is_notice_post(self, title: str, author: str) -> bool:
+        """
+        공지글 여부 판별 (관리자가 작성한 규칙/안내 게시글 제외)
+        
+        Args:
+            title: 게시글 제목
+            author: 작성자
+        
+        Returns:
+            bool: 공지글이면 True, 일반 게시글이면 False
+        """
+        try:
+            if not title or not author:
+                return False
+            
+            title = title.strip().lower()
+            author = author.strip()
+            
+            # 관리자 계정 패턴
+            admin_patterns = [
+                '독고',  # FM코리아 관리자
+                '운영자', '관리자', 'admin', 'administrator',
+                '매니저', 'manager', '스태프', 'staff'
+            ]
+            
+            # 공지글 제목 패턴
+            notice_title_patterns = [
+                '공지', '안내', '알림', '규정', '규칙', '금지', '차단',
+                '이용', '가이드', '정책', '운영', '관리',
+                'notice', 'announcement', 'guide', 'rule'
+            ]
+            
+            # 관리자 계정 확인
+            for pattern in admin_patterns:
+                if pattern in author:
+                    return True
+            
+            # 공지글 제목 패턴 확인
+            for pattern in notice_title_patterns:
+                if pattern in title:
+                    return True
+            
+            # 특정 키워드 조합 확인 (더 정확한 판별)
+            if any(keyword in title for keyword in ['금지', '차단', '규정', '규칙']) and \
+               any(keyword in title for keyword in ['요청', '인증', '신고', '분란', '홍보']):
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.debug(f"공지글 판별 오류: {e}")
+            return False
+    
     def select_posts_by_criteria(self, posts: List[Dict], criteria_count: int = 3) -> Dict[str, List[Dict]]:
         """
         지표별로 상위 게시글 선별 (중복 제거)
@@ -375,7 +428,7 @@ class FMKoreaConfig:
         self.wait_timeout = 10000
         self.navigation_timeout = 30000
         
-        # FM코리아 특화 셀렉터들 (기존 스크래퍼에서 검증된 것들)
+        # FM코리아 특화 셀렉터들 (테스트로 검증된 것들)
         self.selectors = {
             'title': [
                 '.xe_content h1',
@@ -394,9 +447,18 @@ class FMKoreaConfig:
                 '.regdate'
             ],
             'post_container': [
-                '.xe_content .document_content',
-                '.document_content',
-                '.content'
+                'article',           # 테스트 결과: 670자 ✅
+                '.rd_body',          # 테스트 결과: 709자 ✅
+                '.xe_content',       # 테스트 결과: 670자 ✅
+                '.document_content', # 백업용
+                '.content'           # 백업용
+            ],
+            'comment_container': [
+                '.comment_list',
+                '.comments',
+                '#comment_list',
+                '.reply_list',
+                '.comment_area'
             ],
             'board_list': [
                 '.fmk_list_table tbody tr',
@@ -413,7 +475,7 @@ class RuliwebConfig:
         self.wait_timeout = 10000
         self.navigation_timeout = 30000
         
-        # 루리웹 특화 셀렉터들 (기존 스크래퍼에서 검증된 것들)
+        # 루리웹 특화 셀렉터들 (테스트로 검증된 것들)
         self.selectors = {
             'title': [
                 '.board_main_top .subject_text',
@@ -431,9 +493,17 @@ class RuliwebConfig:
                 '.regdate'
             ],
             'post_container': [
-                '.view_content .article_content',
-                '.article_content',
-                '.content'
+                '.view_content',     # 테스트 결과: 39자 ✅
+                'article',           # 테스트 결과: 39자 ✅
+                '.article_content',  # 백업용
+                '.content'           # 백업용
+            ],
+            'comment_container': [
+                '.comment_container', # 테스트 결과: 9개 댓글 ✅
+                '.comment_list',
+                '.comments',
+                '.reply_list',
+                '.comment_area'
             ],
             'board_list': [
                 '.board_list_table tbody tr.table_body',
