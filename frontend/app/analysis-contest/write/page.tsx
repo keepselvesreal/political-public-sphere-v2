@@ -83,8 +83,8 @@ export default function WritePage() {
         description: "선거 분석이 성공적으로 게시되었습니다.",
       });
       
-      // 메인 페이지로 리다이렉트
-      router.push('/');
+      // analysis-contest 페이지로 리다이렉트 (루트가 아닌)
+      router.push('/analysis-contest');
     } catch (error) {
       console.error('게시글 작성 오류:', error);
       toast({
@@ -98,7 +98,7 @@ export default function WritePage() {
 
   // 취소 핸들러
   const handleCancel = () => {
-    router.push('/');
+    router.push('/analysis-contest');
   };
 
   // 로딩 중일 때 표시

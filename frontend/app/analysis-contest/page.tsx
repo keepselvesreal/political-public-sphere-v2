@@ -40,7 +40,7 @@ interface ApiPost {
   winner: string;
   gap: number;
   keywords?: string[];
-  votes?: { up: number; down: number };
+  votes?: { candidate1: number; candidate2: number };
   likes?: number;
   views?: number;
   createdAt?: string;
@@ -55,9 +55,17 @@ const transformApiPostToCardProps = (apiPost: ApiPost): PostCardProps => {
     predictedWinner: apiPost.winner,
     marginPercentage: apiPost.gap,
     mainQuote: apiPost.title, // title을 mainQuote로 사용
-    candidates: undefined, // API에서 제공하지 않음
+    candidates: apiPost.votes ? [
+      { name: '후보 1', percentage: apiPost.votes.candidate1 || 50, color: 'bg-blue-500' },
+      { name: '후보 2', percentage: apiPost.votes.candidate2 || 50, color: 'bg-red-500' }
+    ] : undefined,
     tags: apiPost.keywords,
-    analyst: undefined, // API에서 제공하지 않음
+    analyst: {
+      name: apiPost.authorId || 'Anonymous',
+      avatar: '/avatars/default.jpg',
+      institute: 'Political Analysis',
+      date: apiPost.createdAt || new Date().toISOString()
+    }
   };
 };
 
@@ -105,13 +113,13 @@ export default function Home() {
     isValidating,
     mutate
   } = useSWRInfinite<PostsResponse>(getKey, fetcher, {
-    revalidateFirstPage: false, // 첫 페이지 재검증 비활성화로 성능 향상
+    revalidateFirstPage: true, // 첫 페이지 재검증 활성화로 최신 데이터 확보
     revalidateOnFocus: false, // 포커스 시 재검증 비활성화
     revalidateOnReconnect: true, // 재연결 시에만 재검증
-    dedupingInterval: 10000, // 중복 요청 방지 간격 증가 (10초)
+    dedupingInterval: 5000, // 중복 요청 방지 간격 감소 (5초)
     refreshInterval: 0, // 자동 새로고침 비활성화
     errorRetryCount: 3, // 오류 재시도 횟수 제한
-    errorRetryInterval: 5000, // 오류 재시도 간격
+    errorRetryInterval: 2000, // 오류 재시도 간격 단축
     keepPreviousData: true, // 이전 데이터 유지로 UX 향상
   });
 
