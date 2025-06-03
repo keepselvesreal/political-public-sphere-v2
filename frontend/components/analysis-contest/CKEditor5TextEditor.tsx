@@ -1,7 +1,7 @@
 /*
 목차:
 - CKEditor5TextEditor 컴포넌트 (라인 1-300)
-  - CKEditor 5 React 통합
+  - CKEditor 5 React 통합 (동적 import)
   - 클래식 에디터 빌드 사용
   - 한국어 지원 및 다크모드 대응
   - 기본 포맷팅 도구 제공
@@ -13,8 +13,6 @@
 
 "use client";
 
-import { CKEditor } from '@ckeditor/ckeditor5-react';
-import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Eye, Edit3 } from 'lucide-react';
@@ -34,6 +32,29 @@ export default function CKEditor5TextEditor({
 }: CKEditor5TextEditorProps) {
   const editorRef = useRef<any>(null);
   const [isPreview, setIsPreview] = useState(false);
+  const [editorLoaded, setEditorLoaded] = useState(false);
+  const [CKEditor, setCKEditor] = useState<any>(null);
+  const [ClassicEditor, setClassicEditor] = useState<any>(null);
+
+  // CKEditor 동적 로딩
+  useEffect(() => {
+    const loadEditor = async () => {
+      try {
+        const [ckEditorModule, classicEditorModule] = await Promise.all([
+          import('@ckeditor/ckeditor5-react'),
+          import('@ckeditor/ckeditor5-build-classic')
+        ]);
+        
+        setCKEditor(() => ckEditorModule.CKEditor);
+        setClassicEditor(() => classicEditorModule.default);
+        setEditorLoaded(true);
+      } catch (error) {
+        console.error('CKEditor 로딩 실패:', error);
+      }
+    };
+
+    loadEditor();
+  }, []);
 
   // CKEditor 설정
   const editorConfiguration = {
@@ -103,7 +124,33 @@ export default function CKEditor5TextEditor({
         editorElement.classList.remove('ck-dark-theme');
       }
     }
-  }, []);
+  }, [editorLoaded]);
+
+  // 로딩 중일 때
+  if (!editorLoaded || !CKEditor || !ClassicEditor) {
+    return (
+      <div className="ckeditor5-container">
+        <div className="flex justify-end mb-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled
+            className="flex items-center gap-2"
+          >
+            <Edit3 className="h-4 w-4" />
+            편집
+          </Button>
+        </div>
+        <div className="border rounded-md p-4 min-h-[300px] flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">에디터를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="ckeditor5-container">
@@ -145,11 +192,11 @@ export default function CKEditor5TextEditor({
           config={editorConfiguration}
           data={value}
           disabled={disabled}
-          onChange={(event, editor) => {
+          onChange={(event: any, editor: any) => {
             const data = editor.getData();
             onChange(data);
           }}
-          onReady={(editor) => {
+          onReady={(editor: any) => {
             editorRef.current = editor;
             
             // 에디터 높이 설정
@@ -157,12 +204,12 @@ export default function CKEditor5TextEditor({
             const editingRoot = editingView.document.getRoot();
             
             if (editingRoot) {
-              editingView.change((writer) => {
+              editingView.change((writer: any) => {
                 writer.setStyle('min-height', '300px', editingRoot);
               });
             }
           }}
-          onError={(error, { willEditorRestart }) => {
+          onError={(error: any, { willEditorRestart }: any) => {
             console.error('CKEditor 오류:', error);
             
             if (willEditorRestart) {

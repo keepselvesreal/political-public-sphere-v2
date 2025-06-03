@@ -127,12 +127,31 @@ export default function Header() {
             >
               정치 마실?!
             </Link>
-            <Link 
-              href="/analysis-contest" 
-              className="text-foreground hover:text-blue-600 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              천하제일 분석대회
-            </Link>
+            
+            {/* 천하제일 분석대회 호버 메뉴 */}
+            <div className="relative group">
+              <span className="text-foreground hover:text-blue-600 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer">
+                천하제일 분석대회
+              </span>
+              
+              {/* 호버 시 나타나는 서브메뉴 */}
+              <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 w-48 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                <div className="py-2">
+                  <Link 
+                    href="/analysis-contest/preparation" 
+                    className="block px-4 py-2 text-sm text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-blue-600 transition-colors"
+                  >
+                    준비
+                  </Link>
+                  <Link 
+                    href="/analysis-contest/practice" 
+                    className="block px-4 py-2 text-sm text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-blue-600 transition-colors"
+                  >
+                    실전
+                  </Link>
+                </div>
+              </div>
+            </div>
           </nav>
           
           {/* 우측 인증 및 설정 버튼 */}

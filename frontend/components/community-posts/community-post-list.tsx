@@ -31,7 +31,7 @@ interface Post {
   likes: number;
   dislikes: number;
   comments_count: number;
-  url: string;
+  url?: string;
   category: string;
   // 메트릭 분류 필드
   top_likes: boolean;
