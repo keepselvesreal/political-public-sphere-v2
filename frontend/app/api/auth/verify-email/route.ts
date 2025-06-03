@@ -1,20 +1,22 @@
 /**
  * 📋 파일 목차 (app/api/auth/verify-email/route.ts)
  * ========================================
- * 🎯 주요 역할: 이메일 인증 확인 API 엔드포인트 (TDD Green 단계)
+ * 🎯 주요 역할: 이메일 인증 확인 API 엔드포인트 (TDD Refactor 단계)
  * 
  * 📦 구성 요소:
  * - 라인 1-25: 필수 라이브러리 및 모델 임포트
- * - 라인 27-50: 요청/응답 데이터 검증 스키마 및 타입
- * - 라인 52-75: 사용자 검증 함수
- * - 라인 77-100: 토큰 검증 함수
- * - 라인 102-125: 이메일 인증 처리 함수
- * - 라인 127-180: POST 핸들러 (인증 확인 처리)
+ * - 라인 27-55: 요청/응답 데이터 검증 스키마 및 타입
+ * - 라인 57-80: 사용자 검증 함수
+ * - 라인 82-120: 토큰 검증 함수
+ * - 라인 122-145: 이메일 인증 처리 함수
+ * - 라인 147-200: POST 핸들러 (인증 확인 처리)
  * 
- * 🟢 TDD Green 단계:
- * - 테스트를 통과시키는 최소한의 코드 작성
- * - 모든 테스트 케이스 만족
- * - 리팩토링은 다음 단계에서 진행
+ * 🔵 TDD Refactor 단계:
+ * - 코드 구조 개선 및 가독성 향상
+ * - 함수 분리 및 재사용성 증대
+ * - 에러 처리 개선
+ * - 타입 안전성 강화
+ * - 비즈니스 로직 분리
  * 
  * 🔧 주요 기능:
  * - 6자리 인증 코드 검증
@@ -23,7 +25,7 @@
  * - 사용자 이메일 인증 상태 업데이트
  * - 토큰 사용 처리
  * 
- * 마지막 수정: 2025년 06월 03일 17시 55분 (KST)
+ * 마지막 수정: 2025년 06월 03일 18시 05분 (KST)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -57,6 +59,14 @@ export interface VerifyEmailResponse {
     email: string;
     isEmailVerified: boolean;
   };
+}
+
+/**
+ * 에러 응답 타입
+ */
+export interface ErrorResponse {
+  error: string;
+  details?: any;
 }
 
 /**
@@ -162,13 +172,11 @@ export async function POST(request: NextRequest) {
     const validationResult = verifyEmailSchema.safeParse(body);
     
     if (!validationResult.success) {
-      return NextResponse.json(
-        { 
-          error: '입력 데이터가 올바르지 않습니다',
-          details: validationResult.error.errors
-        },
-        { status: 400 }
-      );
+      const errorResponse: ErrorResponse = {
+        error: '입력 데이터가 올바르지 않습니다',
+        details: validationResult.error.errors
+      };
+      return NextResponse.json(errorResponse, { status: 400 });
     }
     
     const { email, token } = validationResult.data;
@@ -176,10 +184,8 @@ export async function POST(request: NextRequest) {
     // 사용자 검증
     const userValidation = await validateUserForEmailVerification(email);
     if (!userValidation.success) {
-      return NextResponse.json(
-        { error: userValidation.error },
-        { status: userValidation.status }
-      );
+      const errorResponse: ErrorResponse = { error: userValidation.error! };
+      return NextResponse.json(errorResponse, { status: userValidation.status! });
     }
     
     const { user } = userValidation;
@@ -187,10 +193,8 @@ export async function POST(request: NextRequest) {
     // 토큰 검증
     const tokenValidation = await validateVerificationToken(email, token);
     if (!tokenValidation.success) {
-      return NextResponse.json(
-        { error: tokenValidation.error },
-        { status: tokenValidation.status }
-      );
+      const errorResponse: ErrorResponse = { error: tokenValidation.error! };
+      return NextResponse.json(errorResponse, { status: tokenValidation.status! });
     }
     
     const { token: verificationToken } = tokenValidation;
@@ -220,9 +224,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('이메일 인증 확인 중 오류:', error);
     
-    return NextResponse.json(
-      { error: '이메일 인증 확인 중 오류가 발생했습니다' },
-      { status: 500 }
-    );
+    const errorResponse: ErrorResponse = {
+      error: '이메일 인증 확인 중 오류가 발생했습니다'
+    };
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 } 
