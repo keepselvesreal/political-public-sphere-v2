@@ -81,6 +81,52 @@
   }
 }
 
+/* 참조 페이지 스타일 */
+@layer components {
+  /* 버튼 스타일 */
+  .btn-primary {
+    @apply px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2.5 bg-slate-100 text-slate-700 border border-slate-300 rounded-md hover:bg-slate-200 transition-colors font-medium;
+  }
+  
+  /* 입력 필드 스타일 */
+  .input-field {
+    @apply w-full px-3 py-2.5 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors;
+  }
+  
+  /* 색상 클래스 */
+  .bg-accent-100 {
+    @apply bg-blue-100;
+  }
+  
+  .text-accent-600 {
+    @apply text-blue-600;
+  }
+  
+  .text-accent-700 {
+    @apply text-blue-700;
+  }
+  
+  /* 애니메이션 */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
 /* 마크다운 미리보기 스타일 */
 @layer components {
   .prose {

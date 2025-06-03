@@ -1,23 +1,30 @@
 /**
  * 📋 파일 목차 (app/auth/signup/page.tsx)
  * ========================================
- * 🎯 주요 역할: 회원가입 페이지 컴포넌트
+ * 🎯 주요 역할: 단계별 회원가입 페이지 컴포넌트
  * 
  * 📦 구성 요소:
  * - 라인 1-20: 필수 라이브러리 및 컴포넌트 임포트
- * - 라인 22-40: 폼 데이터 타입 및 초기값 정의
- * - 라인 42-80: 회원가입 페이지 컴포넌트
- * - 라인 82-120: 폼 제출 처리 로직
- * - 라인 122-200: UI 렌더링 (헤더, 폼, 버튼)
+ * - 라인 22-60: 단계별 처리 로직 (인증 요청, 인증 확인, 회원가입)
+ * - 라인 62-100: 메인 SignUpPage 컴포넌트
+ * - 라인 102-140: 단계별 컴포넌트 렌더링
+ * - 라인 142-180: 네비게이션 버튼
  * 
  * 🔧 주요 기능:
- * - 회원가입 폼 상태 관리
- * - 실시간 폼 검증
- * - 회원가입 API 연동
- * - 성공/실패 처리 및 피드백
- * - 이메일 인증 안내
+ * - 3단계 회원가입 프로세스 관리
+ * - 인증 코드 발송 및 확인
+ * - 최종 회원가입 처리
+ * - 단계별 폼 검증
  * 
- * 마지막 수정: 2025년 06월 03일 18시 25분 (KST)
+ * 📚 사용된 컴포넌트:
+ * - Step1Verification: 1단계 인증 방식 선택
+ * - Step2CodeVerification: 2단계 인증 코드 확인
+ * - Step3AccountSetup: 3단계 계정 설정
+ * 
+ * 🎣 사용된 훅:
+ * - useSignUpForm: 단계별 폼 상태 관리
+ * 
+ * 마지막 수정: 2025년 06월 03일 19시 55분 (KST)
  */
 
 "use client";
@@ -25,139 +32,171 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { UserPlus, ChevronLeft, ArrowRight, Mail, Eye, EyeOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ArrowRight, ShoppingBag, ChevronLeft } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import { useSignUpForm } from '@/hooks/useSignUpForm';
+import Step1Verification from '@/components/auth/Step1Verification';
+import Step2CodeVerification from '@/components/auth/Step2CodeVerification';
+import Step3AccountSetup from '@/components/auth/Step3AccountSetup';
 
 /**
- * 회원가입 폼 데이터 타입
+ * 단계별 회원가입 페이지 컴포넌트
  */
-interface SignupFormData {
-  username: string;
-  name: string;
-  email: string;
-  password: string;
-  password2: string;
-}
-
-/**
- * 폼 에러 타입
- */
-interface FormErrors {
-  [key: string]: string;
-}
-
-/**
- * 회원가입 페이지 컴포넌트
- */
-export default function SignupPage() {
+export default function SignUpPage() {
   const router = useRouter();
   const { toast } = useToast();
-  
-  // 폼 상태 관리
-  const [formData, setFormData] = useState<SignupFormData>({
-    username: '',
-    name: '',
-    email: '',
-    password: '',
-    password2: '',
-  });
-  
-  const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showPassword2, setShowPassword2] = useState(false);
+  const [error, setError] = useState<string>('');
+  
+  // 단계별 회원가입 폼 관리 훅
+  const {
+    currentStep,
+    verificationMethod,
+    setVerificationMethod,
+    verificationStatus,
+    setVerificationStatus,
+    formData,
+    formErrors,
+    showPassword,
+    setShowPassword,
+    handleFormChange,
+    handleCheckboxChange,
+    validateStep1,
+    validateStep2,
+    validateStep3,
+    goToNextStep,
+    goToPrevStep,
+  } = useSignUpForm();
 
   /**
-   * 폼 입력 변경 처리
+   * 1단계: 인증 코드 요청 처리
    */
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // 해당 필드의 에러 제거
-    if (formErrors[name]) {
-      setFormErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  /**
-   * 폼 유효성 검사
-   */
-  const validateForm = (): boolean => {
-    const errors: FormErrors = {};
-
-    // 사용자명 검증
-    if (!formData.username.trim()) {
-      errors.username = '사용자명을 입력해주세요';
-    } else if (formData.username.length < 3) {
-      errors.username = '사용자명은 3자 이상이어야 합니다';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      errors.username = '사용자명은 영문, 숫자, 언더스코어만 사용 가능합니다';
-    }
-
-    // 이름 검증
-    if (!formData.name.trim()) {
-      errors.name = '이름을 입력해주세요';
-    } else if (formData.name.length < 2) {
-      errors.name = '이름은 2자 이상이어야 합니다';
-    }
-
-    // 이메일 검증
-    if (!formData.email.trim()) {
-      errors.email = '이메일을 입력해주세요';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = '올바른 이메일 형식이 아닙니다';
-    }
-
-    // 비밀번호 검증
-    if (!formData.password) {
-      errors.password = '비밀번호를 입력해주세요';
-    } else if (formData.password.length < 8) {
-      errors.password = '비밀번호는 8자 이상이어야 합니다';
-    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      errors.password = '비밀번호는 대문자, 소문자, 숫자를 포함해야 합니다';
-    }
-
-    // 비밀번호 확인 검증
-    if (!formData.password2) {
-      errors.password2 = '비밀번호 확인을 입력해주세요';
-    } else if (formData.password !== formData.password2) {
-      errors.password2 = '비밀번호가 일치하지 않습니다';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  /**
-   * 회원가입 폼 제출 처리
-   */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
+  const handleRequestVerification = async () => {
+    if (!validateStep1()) {
       toast({
         title: "입력 오류",
-        description: "입력 정보를 확인해주세요.",
+        description: "이름과 이메일을 올바르게 입력해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVerificationStatus('sending');
+    setError('');
+
+    try {
+      console.log('🚀 인증 코드 요청:', {
+        name: formData.name,
+        email: formData.email,
+        method: verificationMethod
+      });
+
+      // 실제 API 호출 시뮬레이션 (임시)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setVerificationStatus('sent');
+      goToNextStep();
+      
+      toast({
+        title: "인증 코드 발송 완료",
+        description: `${formData.email}로 인증 코드를 발송했습니다.`,
+      });
+      
+    } catch (error) {
+      console.error('❌ 인증 코드 요청 오류:', error);
+      setVerificationStatus('error');
+      setError('인증 코드 발송에 실패했습니다. 다시 시도해주세요.');
+      toast({
+        title: "인증 코드 발송 실패",
+        description: "다시 시도해주세요.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  /**
+   * 2단계: 인증 코드 확인 처리
+   */
+  const handleVerifyCode = async () => {
+    if (!validateStep2()) {
+      toast({
+        title: "입력 오류",
+        description: "6자리 인증 코드를 입력해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVerificationStatus('verifying');
+    setError('');
+
+    try {
+      console.log('🔍 인증 코드 확인:', {
+        email: formData.email,
+        code: formData.verificationCode
+      });
+
+      // 실제 API 호출 시뮬레이션 (임시)
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setVerificationStatus('verified');
+      goToNextStep();
+      
+      toast({
+        title: "인증 완료",
+        description: "이메일 인증이 완료되었습니다.",
+      });
+      
+    } catch (error) {
+      console.error('❌ 인증 코드 확인 오류:', error);
+      setVerificationStatus('error');
+      setError('인증 코드가 올바르지 않습니다. 다시 확인해주세요.');
+      toast({
+        title: "인증 실패",
+        description: "인증 코드를 다시 확인해주세요.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  /**
+   * 3단계: 최종 회원가입 처리
+   */
+  const handleCompleteSignUp = async () => {
+    if (!validateStep3()) {
+      toast({
+        title: "입력 오류",
+        description: "모든 필수 항목을 입력하고 약관에 동의해주세요.",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
+    setError('');
 
     try {
+      console.log('🚀 회원가입 완료:', {
+        name: formData.name,
+        email: formData.email,
+        username: formData.email, // 이메일을 아이디로 사용
+        password: formData.password,
+      });
+
+      // 회원가입 API 호출
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          username: formData.email, // 이메일을 아이디로 사용
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          password2: formData.password, // 비밀번호 확인은 동일하게
+        }),
       });
 
       const data = await response.json();
@@ -165,20 +204,23 @@ export default function SignupPage() {
       if (!response.ok) {
         throw new Error(data.error || '회원가입에 실패했습니다');
       }
-
+      
+      console.log('✅ 회원가입 완료');
+      
       toast({
-        title: "회원가입 성공!",
-        description: "이메일 인증을 완료하여 계정을 활성화하세요.",
+        title: "회원가입이 완료되었습니다!",
+        description: "로그인하여 서비스를 이용해보세요!",
       });
-
-      // 이메일 인증 페이지로 이동
-      router.push(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
-
+      
+      router.push('/auth/login');
+      
     } catch (error) {
-      console.error('회원가입 오류:', error);
+      console.error('❌ 회원가입 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다';
+      setError(errorMessage);
       toast({
         title: "회원가입 실패",
-        description: error instanceof Error ? error.message : '회원가입 중 오류가 발생했습니다',
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -186,184 +228,172 @@ export default function SignupPage() {
     }
   };
 
+  /**
+   * 단계별 제목 반환
+   */
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case 'verification':
+        return '인증 방식 선택';
+      case 'code':
+        return '인증 코드 확인';
+      case 'account':
+        return '회원가입 완료';
+      default:
+        return '회원가입';
+    }
+  };
+
+  /**
+   * 단계별 컴포넌트 렌더링
+   */
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 'verification':
+        return (
+          <Step1Verification
+            verificationMethod={verificationMethod}
+            setVerificationMethod={setVerificationMethod}
+            verificationStatus={verificationStatus}
+            formData={{ name: formData.name, email: formData.email }}
+            formErrors={formErrors}
+            onChange={handleFormChange}
+            onRequestVerification={handleRequestVerification}
+          />
+        );
+      case 'code':
+        return (
+          <Step2CodeVerification
+            email={formData.email}
+            verificationStatus={verificationStatus}
+            formData={{ verificationCode: formData.verificationCode }}
+            formErrors={formErrors}
+            onChange={handleFormChange}
+            onVerifyCode={handleVerifyCode}
+          />
+        );
+      case 'account':
+        return (
+          <Step3AccountSetup
+            email={formData.email}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            formData={{
+              username: formData.username,
+              password: formData.password,
+              agreeAll: formData.agreeAll,
+              agreeAge: formData.agreeAge,
+              agreeTerms: formData.agreeTerms,
+              agreePrivacy: formData.agreePrivacy,
+            }}
+            formErrors={formErrors}
+            onChange={handleFormChange}
+            onCheckboxChange={handleCheckboxChange}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  /**
+   * 다음 단계 버튼 처리
+   */
+  const handleNextStep = () => {
+    if (currentStep === 'account') {
+      handleCompleteSignUp();
+    } else {
+      // 다른 단계는 각 컴포넌트에서 직접 처리
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12">
+    <div className="bg-slate-50 min-h-screen py-12 animate-fade-in">
       <div className="container mx-auto px-4">
         <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full mb-4 mx-auto">
-                <UserPlus size={32} />
+          {/* 회원가입 폼 카드 */}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white rounded-lg shadow-sm p-8"
+          >
+            {/* 페이지 헤더 */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 text-blue-600 rounded-full mb-4">
+                <ShoppingBag size={32} />
               </div>
-              <CardTitle className="text-2xl">회원가입</CardTitle>
-              <CardDescription>
-                정치적 공론장에 참여하세요
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent>
-              {/* 이메일 인증 안내 */}
-              <Alert className="mb-6">
-                <Mail className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <p className="font-semibold">이메일 인증 기반 회원가입</p>
-                    <p className="text-sm">
-                      1단계: 회원가입 정보를 입력하세요.<br/>
-                      2단계: 이메일로 발송된 인증 코드를 입력하여 계정을 활성화하세요.
-                    </p>
-                  </div>
-                </AlertDescription>
-              </Alert>
-
-              {/* 회원가입 폼 */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 사용자명 */}
-                <div className="space-y-2">
-                  <Label htmlFor="username">사용자명</Label>
-                  <Input
-                    id="username"
-                    name="username"
-                    type="text"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    placeholder="영문, 숫자, 언더스코어만 사용"
-                    className={formErrors.username ? 'border-red-500' : ''}
-                  />
-                  {formErrors.username && (
-                    <p className="text-sm text-red-500">{formErrors.username}</p>
+              <h1 className="text-2xl font-bold text-gray-900">{getStepTitle()}</h1>
+              <p className="text-slate-500 mt-2">정치적 공론장에 참여하세요</p>
+            </div>
+            
+            {/* 단계별 컨텐츠 */}
+            <div className="mb-6">
+              {renderStepContent()}
+            </div>
+            
+            {/* 서버 에러 메시지 표시 */}
+            {error && (
+              <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm mb-6">
+                {error}
+              </div>
+            )}
+            
+            {/* 액션 버튼들 */}
+            <div className="flex gap-3 pt-4">
+              {/* 뒤로가기 버튼 */}
+              {currentStep !== 'verification' && (
+                <button
+                  type="button"
+                  onClick={goToPrevStep}
+                  className="btn-secondary flex-1 flex items-center justify-center"
+                >
+                  <ChevronLeft size={18} className="mr-1" /> 뒤로
+                </button>
+              )}
+              
+              {/* 홈으로 버튼 (첫 단계에서만) */}
+              {currentStep === 'verification' && (
+                <button
+                  type="button"
+                  onClick={() => router.push('/')}
+                  className="btn-secondary flex-1 flex items-center justify-center"
+                >
+                  <ChevronLeft size={18} className="mr-1" /> 홈으로
+                </button>
+              )}
+              
+              {/* 회원가입 완료 버튼 (마지막 단계에서만) */}
+              {currentStep === 'account' && (
+                <button
+                  type="button"
+                  onClick={handleCompleteSignUp}
+                  disabled={isLoading}
+                  className="btn-primary flex-1 flex items-center justify-center"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      가입 처리중...
+                    </span>
+                  ) : (
+                    <span className="flex items-center">
+                      회원가입 완료 <ArrowRight size={18} className="ml-2" />
+                    </span>
                   )}
-                </div>
-
-                {/* 이름 */}
-                <div className="space-y-2">
-                  <Label htmlFor="name">이름</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    type="text"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    placeholder="실명을 입력하세요"
-                    className={formErrors.name ? 'border-red-500' : ''}
-                  />
-                  {formErrors.name && (
-                    <p className="text-sm text-red-500">{formErrors.name}</p>
-                  )}
-                </div>
-
-                {/* 이메일 */}
-                <div className="space-y-2">
-                  <Label htmlFor="email">이메일</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="example@email.com"
-                    className={formErrors.email ? 'border-red-500' : ''}
-                  />
-                  {formErrors.email && (
-                    <p className="text-sm text-red-500">{formErrors.email}</p>
-                  )}
-                </div>
-
-                {/* 비밀번호 */}
-                <div className="space-y-2">
-                  <Label htmlFor="password">비밀번호</Label>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      name="password"
-                      type={showPassword ? 'text' : 'password'}
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder="8자 이상, 대소문자, 숫자 포함"
-                      className={formErrors.password ? 'border-red-500' : ''}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  {formErrors.password && (
-                    <p className="text-sm text-red-500">{formErrors.password}</p>
-                  )}
-                </div>
-
-                {/* 비밀번호 확인 */}
-                <div className="space-y-2">
-                  <Label htmlFor="password2">비밀번호 확인</Label>
-                  <div className="relative">
-                    <Input
-                      id="password2"
-                      name="password2"
-                      type={showPassword2 ? 'text' : 'password'}
-                      value={formData.password2}
-                      onChange={handleInputChange}
-                      placeholder="비밀번호를 다시 입력하세요"
-                      className={formErrors.password2 ? 'border-red-500' : ''}
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword2(!showPassword2)}
-                    >
-                      {showPassword2 ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  {formErrors.password2 && (
-                    <p className="text-sm text-red-500">{formErrors.password2}</p>
-                  )}
-                </div>
-
-                {/* 액션 버튼들 */}
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => router.back()}
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-2" />
-                    뒤로
-                  </Button>
-                  
-                  <Button
-                    type="submit"
-                    className="flex-1"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        가입 처리중...
-                      </span>
-                    ) : (
-                      <span className="flex items-center">
-                        회원가입 완료
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </span>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
+                </button>
+              )}
+            </div>
+          </motion.div>
+          
           {/* 로그인 링크 */}
           <div className="mt-6 text-center">
-            <p className="text-muted-foreground">
+            <p className="text-slate-600">
               이미 계정이 있으신가요?{' '}
-              <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-medium">
+              <Link href="/auth/login" className="text-blue-600 font-medium hover:text-blue-700">
                 로그인
               </Link>
             </p>

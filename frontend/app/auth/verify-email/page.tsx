@@ -18,7 +18,7 @@
  * - 성공/실패 상태 표시
  * - 자동 리다이렉트
  * 
- * 마지막 수정: 2025년 06월 03일 18시 35분 (KST)
+ * 마지막 수정: 2025년 06월 03일 19시 15분 (KST)
  */
 
 "use client";
@@ -26,12 +26,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Mail, ChevronLeft, ArrowRight, CheckCircle, XCircle, RefreshCw, Timer } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Mail, Home, LogIn, CheckCircle, XCircle, RefreshCw, AlertTriangle } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 
 /**
@@ -182,254 +178,301 @@ export default function VerifyEmailPage() {
   };
 
   /**
-   * 상태별 아이콘 렌더링
+   * 홈페이지로 이동
    */
-  const renderStatusIcon = () => {
-    switch (status) {
-      case 'success':
-        return <CheckCircle size={40} className="text-green-600" />;
-      case 'error':
-        return <XCircle size={40} className="text-red-600" />;
-      case 'sending':
-      case 'verifying':
-        return <RefreshCw size={40} className="text-blue-600 animate-spin" />;
-      default:
-        return <Mail size={40} className="text-blue-600" />;
-    }
+  const handleGoHome = () => {
+    router.push('/');
   };
 
   /**
-   * 상태별 제목 렌더링
+   * 로그인 페이지로 이동
    */
-  const renderStatusTitle = () => {
-    switch (status) {
-      case 'success':
-        return '인증 완료!';
-      case 'error':
-        return '인증 실패';
-      case 'sending':
-        return '인증 코드 발송 중...';
-      case 'verifying':
-        return '인증 확인 중...';
-      case 'waiting':
-        return '인증 코드 입력';
-      default:
-        return '이메일 인증';
-    }
+  const handleGoLogin = () => {
+    router.push('/auth/login');
+  };
+
+  /**
+   * 회원가입 페이지로 이동 (재시도)
+   */
+  const handleRetry = () => {
+    router.push('/auth/signup');
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12">
-      <div className="container mx-auto px-4">
-        <div className="max-w-md mx-auto">
-          <Card>
-            <CardHeader className="text-center">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full mb-4 mx-auto">
-                {renderStatusIcon()}
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+      >
+        {/* 헤더 섹션 */}
+        <div className={`px-8 py-12 text-center ${
+          status === 'success' 
+            ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
+            : status === 'error'
+            ? 'bg-gradient-to-r from-red-500 to-rose-600'
+            : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+        } text-white`}>
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+            className="inline-flex items-center justify-center w-20 h-20 bg-white bg-opacity-20 rounded-full mb-6"
+          >
+            {status === 'success' ? (
+              <CheckCircle size={40} />
+            ) : status === 'error' ? (
+              <XCircle size={40} />
+            ) : status === 'sending' || status === 'verifying' ? (
+              <div className="animate-spin">
+                <RefreshCw size={40} />
               </div>
-              <CardTitle className="text-2xl">{renderStatusTitle()}</CardTitle>
-              <CardDescription>
-                {status === 'success' 
-                  ? '이메일 인증이 성공적으로 완료되었습니다'
-                  : status === 'error'
-                  ? '인증 처리 중 문제가 발생했습니다'
-                  : '이메일로 발송된 인증 코드를 입력하세요'
-                }
-              </CardDescription>
-            </CardHeader>
+            ) : (
+              <Mail size={40} />
+            )}
+          </motion.div>
+          
+          <h1 className="text-3xl font-bold mb-2">
+            {status === 'success' ? '인증 완료!' : 
+             status === 'error' ? '인증 실패' : 
+             status === 'sending' ? '발송 중...' :
+             status === 'verifying' ? '인증 중...' :
+             '이메일 인증'}
+          </h1>
+          
+          <p className="text-lg opacity-90">
+            {status === 'success' 
+              ? '이메일 인증이 성공적으로 완료되었습니다' 
+              : status === 'error'
+              ? '이메일 인증 처리 중 문제가 발생했습니다'
+              : status === 'sending'
+              ? '인증 코드를 발송하고 있습니다'
+              : status === 'verifying'
+              ? '인증 코드를 확인하고 있습니다'
+              : '이메일로 발송된 인증 코드를 입력하세요'
+            }
+          </p>
+        </div>
 
-            <CardContent>
-              {status === 'success' ? (
-                // 성공 상태
-                <div className="text-center space-y-4">
-                  <Alert>
-                    <CheckCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      계정이 성공적으로 활성화되었습니다. 이제 모든 서비스를 이용하실 수 있습니다.
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="space-y-3">
-                    <Button 
-                      onClick={() => router.push('/auth/login')}
-                      className="w-full"
-                    >
-                      로그인하기
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                    
-                    <Button 
-                      variant="outline"
-                      onClick={() => router.push('/')}
-                      className="w-full"
-                    >
-                      홈페이지로 이동
-                    </Button>
+        {/* 메인 콘텐츠 */}
+        <div className="px-8 py-8">
+          {status === 'success' ? (
+            <div className="text-center">
+              <div className="mb-6">
+                <p className="text-lg text-gray-700 mb-4">
+                  축하합니다! 정치적 공론장의 모든 서비스를 이용하실 수 있습니다.
+                </p>
+                
+                {email && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    <h3 className="font-semibold text-green-800 mb-2">인증된 계정 정보</h3>
+                    <p className="text-sm text-green-700">
+                      <strong>이메일:</strong> {email}
+                    </p>
                   </div>
+                )}
+                
+                {/* 자동 리다이렉트 안내 */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-blue-700">
+                    <strong>3초</strong> 후 자동으로 로그인 페이지로 이동합니다.
+                  </p>
                 </div>
-              ) : status === 'error' ? (
-                // 에러 상태
-                <div className="space-y-4">
-                  <Alert variant="destructive">
-                    <XCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      {errorMessage}
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="space-y-3">
-                    <Button 
-                      onClick={() => {
-                        setStatus('input');
-                        setErrorMessage('');
-                        setVerificationCode('');
-                      }}
-                      className="w-full"
-                    >
-                      다시 시도하기
-                    </Button>
-                    
-                    <Button 
-                      variant="outline"
-                      onClick={() => router.push('/auth/signup')}
-                      className="w-full"
-                    >
-                      회원가입으로 돌아가기
-                    </Button>
+              </div>
+              
+              <div className="space-y-3">
+                <button
+                  onClick={handleGoLogin}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <LogIn size={20} />
+                  로그인하기
+                </button>
+                
+                <button
+                  onClick={handleGoHome}
+                  className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center gap-2"
+                >
+                  <Home size={20} />
+                  홈페이지로 이동
+                </button>
+              </div>
+            </div>
+          ) : status === 'error' ? (
+            <div className="text-center">
+              <div className="mb-6">
+                <p className="text-lg text-gray-700 mb-4">
+                  이메일 인증에 실패했습니다.
+                </p>
+                
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-2 text-red-800 mb-2">
+                    <AlertTriangle size={16} />
+                    <h4 className="font-semibold">오류 상세 정보</h4>
                   </div>
+                  <p className="text-sm text-red-700">{errorMessage}</p>
                 </div>
-              ) : (
-                // 입력/대기 상태
-                <div className="space-y-4">
-                  {/* 이메일 입력 */}
-                  <div className="space-y-2">
-                    <Label htmlFor="email">이메일</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="example@email.com"
-                      disabled={status !== 'input'}
+                
+                {/* 해결 방법 안내 */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                  <h4 className="font-semibold text-yellow-800 mb-2">해결 방법</h4>
+                  <ul className="text-sm text-yellow-700 text-left space-y-1">
+                    <li>• 이메일에서 최신 인증 링크를 사용해주세요</li>
+                    <li>• 회원가입 페이지에서 인증 코드를 직접 입력해보세요</li>
+                    <li>• 문제가 지속되면 고객센터로 문의해주세요</li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <button
+                  onClick={handleRetry}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  <Mail size={20} />
+                  다시 시도하기
+                </button>
+                
+                <button
+                  onClick={handleGoHome}
+                  className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center gap-2"
+                >
+                  <Home size={20} />
+                  홈페이지로 이동
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center">
+              {/* 이메일 입력 */}
+              <div className="mb-6">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  이메일 주소
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="example@email.com"
+                  disabled={status !== 'input'}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                />
+              </div>
+
+              {/* 인증 코드 발송 버튼 */}
+              {status === 'input' && (
+                <button 
+                  onClick={handleSendVerificationCode}
+                  disabled={!email.trim()}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
+                >
+                  <Mail size={20} />
+                  인증 코드 발송
+                </button>
+              )}
+
+              {/* 발송 중 상태 표시 */}
+              {status === 'sending' && (
+                <div className="mb-6">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                  <p className="text-gray-600">인증 코드를 발송하고 있습니다...</p>
+                </div>
+              )}
+
+              {/* 인증 코드 입력 (발송 후) */}
+              {(status === 'waiting' || status === 'verifying') && (
+                <>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p className="text-blue-800 text-sm">
+                      <strong>{email}</strong>로 6자리 인증 코드를 발송했습니다.
+                      이메일을 확인하여 코드를 입력해주세요.
+                    </p>
+                  </div>
+
+                  <div className="mb-6">
+                    <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-2">
+                      인증 코드 (6자리)
+                    </label>
+                    <input
+                      type="text"
+                      id="code"
+                      value={verificationCode}
+                      onChange={handleCodeChange}
+                      placeholder="123456"
+                      maxLength={6}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center text-lg tracking-widest"
+                      disabled={status === 'verifying'}
                     />
                   </div>
 
-                  {/* 인증 코드 발송 버튼 */}
-                  {(status === 'input') && (
-                    <Button 
+                  {/* 재발송 대기 시간 */}
+                  {countdown > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
+                      <p className="text-yellow-800 text-sm">
+                        인증 코드 재발송까지 <strong>{countdown}초</strong> 남았습니다.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 mb-6">
+                    {/* 재발송 버튼 */}
+                    <button 
                       onClick={handleSendVerificationCode}
-                      disabled={!email.trim()}
-                      className="w-full"
+                      disabled={countdown > 0 || status === 'verifying'}
+                      className="flex-1 bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <span className="flex items-center">
-                        <Mail className="h-4 w-4 mr-2" />
-                        인증 코드 발송
-                      </span>
-                    </Button>
-                  )}
-
-                  {/* 발송 중 상태 표시 */}
-                  {status === 'sending' && (
-                    <Button disabled className="w-full">
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      인증 코드 발송 중...
-                    </Button>
-                  )}
-
-                  {/* 인증 코드 입력 (발송 후) */}
-                  {(status === 'waiting' || status === 'verifying') && (
-                    <>
-                      <Alert>
-                        <Mail className="h-4 w-4" />
-                        <AlertDescription>
-                          <strong>{email}</strong>로 6자리 인증 코드를 발송했습니다.
-                          이메일을 확인하여 코드를 입력해주세요.
-                        </AlertDescription>
-                      </Alert>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="code">인증 코드 (6자리)</Label>
-                        <Input
-                          id="code"
-                          type="text"
-                          value={verificationCode}
-                          onChange={handleCodeChange}
-                          placeholder="123456"
-                          maxLength={6}
-                          className="text-center text-lg tracking-widest"
-                          disabled={status === 'verifying'}
-                        />
-                      </div>
-
-                      {/* 재발송 대기 시간 */}
-                      {countdown > 0 && (
-                        <Alert>
-                          <Timer className="h-4 w-4" />
-                          <AlertDescription>
-                            인증 코드 재발송까지 <strong>{countdown}초</strong> 남았습니다.
-                          </AlertDescription>
-                        </Alert>
+                      재발송
+                    </button>
+                    
+                    {/* 인증 확인 버튼 */}
+                    <button 
+                      onClick={handleVerifyCode}
+                      disabled={verificationCode.length !== 6 || status === 'verifying'}
+                      className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {status === 'verifying' ? (
+                        <span className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          확인 중...
+                        </span>
+                      ) : (
+                        '인증 확인'
                       )}
-
-                      <div className="flex gap-3">
-                        {/* 재발송 버튼 */}
-                        <Button 
-                          variant="outline"
-                          onClick={handleSendVerificationCode}
-                          disabled={countdown > 0 || status === 'verifying'}
-                          className="flex-1"
-                        >
-                          재발송
-                        </Button>
-                        
-                        {/* 인증 확인 버튼 */}
-                        <Button 
-                          onClick={handleVerifyCode}
-                          disabled={verificationCode.length !== 6 || status === 'verifying'}
-                          className="flex-1"
-                        >
-                          {status === 'verifying' ? (
-                            <span className="flex items-center">
-                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                              확인 중...
-                            </span>
-                          ) : (
-                            '인증 확인'
-                          )}
-                        </Button>
-                      </div>
-                    </>
-                  )}
-
-                  {/* 뒤로가기 버튼 */}
-                  <Button 
-                    variant="outline"
-                    onClick={() => router.back()}
-                    className="w-full"
-                  >
-                    <ChevronLeft className="h-4 w-4 mr-2" />
-                    뒤로
-                  </Button>
-                </div>
+                    </button>
+                  </div>
+                </>
               )}
-            </CardContent>
-          </Card>
 
-          {/* 추가 링크 */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              문제가 지속되나요?{' '}
-              <Link href="/auth/signup" className="text-blue-600 hover:text-blue-700 font-medium">
-                회원가입 다시 시도
-              </Link>
-              {' 또는 '}
-              <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-medium">
-                로그인
-              </Link>
-            </p>
-          </div>
+              {/* 뒤로가기 버튼 */}
+              <button 
+                onClick={() => router.back()}
+                className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-200 transition-colors duration-200"
+              >
+                뒤로
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+
+        {/* 푸터 */}
+        <div className="bg-gray-50 px-8 py-4 text-center border-t">
+          <p className="text-sm text-gray-600">
+            <strong>정치적 공론장</strong> - 정치 토론 플랫폼
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            문제가 지속되나요?{' '}
+            <Link href="/auth/signup" className="text-blue-600 hover:text-blue-700">
+              회원가입 다시 시도
+            </Link>
+            {' 또는 '}
+            <Link href="/auth/login" className="text-blue-600 hover:text-blue-700">
+              로그인
+            </Link>
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 } 
