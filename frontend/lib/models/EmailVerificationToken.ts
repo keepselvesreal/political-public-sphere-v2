@@ -5,22 +5,25 @@
  * 
  * 📦 구성 요소:
  * - 라인 1-15: 필수 라이브러리 및 타입 임포트
- * - 라인 17-30: 이메일 인증 토큰 인터페이스 정의
- * - 라인 32-65: 토큰 스키마 정의
- * - 라인 67-75: 토큰 생성 정적 메서드
- * - 라인 77-85: 토큰 검증 정적 메서드
- * - 라인 87-95: 모델 내보내기
+ * - 라인 17-35: 이메일 인증 토큰 인터페이스 정의
+ * - 라인 37-75: 토큰 스키마 정의
+ * - 라인 77-85: 토큰 생성 정적 메서드
+ * - 라인 87-95: 토큰 검증 정적 메서드
+ * - 라인 97-105: 모델 내보내기
  * 
  * 🔧 주요 기능:
  * - 이메일 인증 토큰 생성 및 저장
  * - 토큰 만료 시간 관리 (24시간)
  * - 토큰 사용 상태 추적
  * - 자동 만료 처리 (TTL 인덱스)
+ * - 사용자 ID 연결
  * 
  * 🔒 보안 기능:
  * - 6자리 숫자 토큰 생성
  * - 토큰 재사용 방지
  * - 자동 만료 처리
+ * 
+ * 마지막 수정: 2025년 06월 03일 17시 40분 (KST)
  */
 
 import mongoose, { Document, Schema, Model } from 'mongoose';
@@ -30,6 +33,7 @@ import crypto from 'crypto';
  * 이메일 인증 토큰 인터페이스 정의
  */
 export interface IEmailVerificationToken extends Document {
+  userId: mongoose.Types.ObjectId;  // 사용자 ID (ObjectId 참조)
   email: string;           // 인증할 이메일 주소
   token: string;           // 6자리 인증 토큰
   isUsed: boolean;         // 토큰 사용 여부
@@ -49,6 +53,11 @@ export interface IEmailVerificationTokenModel extends Model<IEmailVerificationTo
  * 이메일 인증 토큰 스키마 정의
  */
 const EmailVerificationTokenSchema = new Schema<IEmailVerificationToken>({
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, '사용자 ID는 필수입니다']
+  },
   email: {
     type: String,
     required: [true, '이메일은 필수입니다'],
@@ -125,6 +134,7 @@ EmailVerificationTokenSchema.statics.verifyToken = async function(email: string,
  * 검색 성능 최적화 및 자동 만료 처리
  */
 EmailVerificationTokenSchema.index({ email: 1, isUsed: 1 });
+EmailVerificationTokenSchema.index({ userId: 1 });
 EmailVerificationTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // 모델 생성 및 내보내기
