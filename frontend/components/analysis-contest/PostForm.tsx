@@ -10,7 +10,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -56,9 +56,10 @@ interface PostFormProps {
   onSubmit: (data: PostFormData) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
+  initialData?: PostFormData;
 }
 
-export default function PostForm({ onSubmit, onCancel, isSubmitting = false }: PostFormProps) {
+export default function PostForm({ onSubmit, onCancel, isSubmitting = false, initialData }: PostFormProps) {
   const [tagInput, setTagInput] = useState('');
   const { toast } = useToast();
 
@@ -68,10 +69,11 @@ export default function PostForm({ onSubmit, onCancel, isSubmitting = false }: P
     handleSubmit,
     watch,
     setValue,
-    formState: { errors }
+    formState: { errors },
+    reset
   } = useForm<PostFormData>({
     resolver: zodResolver(postFormSchema),
-    defaultValues: {
+    defaultValues: initialData || {
       title: '',
       winner: '',
       gap: 0,
@@ -85,6 +87,13 @@ export default function PostForm({ onSubmit, onCancel, isSubmitting = false }: P
       content: '',
     }
   });
+
+  // 초기 데이터가 변경될 때 폼 리셋
+  useEffect(() => {
+    if (initialData) {
+      reset(initialData);
+    }
+  }, [initialData, reset]);
 
   const keywords = watch('keywords');
   const votes = watch('votes');
@@ -215,7 +224,7 @@ export default function PostForm({ onSubmit, onCancel, isSubmitting = false }: P
           {/* 득표율 예측 */}
           <div className="space-y-2">
             <Label>득표율 예측 * (합계: {(votes.leeJaeMyung + votes.kimMoonSoo + votes.leeJunSeok + votes.kwonYoungGook).toFixed(1)}%)</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="leeJaeMyung">이재명 득표율 (%)</Label>
                 <Input

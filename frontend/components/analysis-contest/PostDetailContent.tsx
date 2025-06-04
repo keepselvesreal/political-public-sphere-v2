@@ -3,16 +3,20 @@
 - PostDetailContent 컴포넌트 (게시글 상세 내용)
 - 클라이언트 컴포넌트로 i18n 및 상호작용 처리
 - 투표 및 댓글 시스템 통합
+- 작성자 수정 기능 추가
 - A11y 접근성 지원
+- 마지막 수정: 2024년 12월 19일 19시 20분 (KST)
 */
 
 "use client";
 
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Edit } from 'lucide-react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import CommentSection from '@/components/analysis-contest/CommentSection';
 import VoteButtons from '@/components/analysis-contest/VoteButtons';
 
@@ -27,6 +31,7 @@ interface PostDetailContentProps {
     marginPercentage: number;
     mainQuote: string;
     content: string;
+    authorId?: string; // 작성자 ID 추가
     candidates?: Array<{
       name: string;
       percentage: number;
@@ -49,17 +54,34 @@ interface PostDetailContentProps {
 
 export default function PostDetailContent({ post }: PostDetailContentProps) {
   const { t } = useTranslation('common');
+  const { data: session } = useSession();
+  
+  // 현재 사용자가 작성자인지 확인
+  const isAuthor = session?.user && post.authorId && 
+    (session.user.id === post.authorId || session.user.email === post.authorId);
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <Link 
-        href="/" 
-        className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
-        aria-label={t('backToList.aria')}
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
-        {t('backToList')}
-      </Link>
+      <div className="flex items-center justify-between mb-6">
+        <Link 
+          href="/analysis-contest/practice" 
+          className="inline-flex items-center text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+          aria-label={t('backToList.aria')}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" />
+          {t('backToList')}
+        </Link>
+        
+        {/* 작성자일 경우 수정 버튼 표시 */}
+        {isAuthor && (
+          <Link href={`/analysis-contest/edit/${post.id}`}>
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              수정
+            </Button>
+          </Link>
+        )}
+      </div>
       
       <article className="bg-white dark:bg-gray-950 rounded-xl shadow-md overflow-hidden">
         <div className="p-6 md:p-8">

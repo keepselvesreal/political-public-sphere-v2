@@ -88,6 +88,7 @@ const transformApiPostToDetailProps = (apiPost: ApiPost) => {
     marginPercentage: apiPost.gap,
     mainQuote: apiPost.title,
     content: apiPost.content || '',
+    authorId: apiPost.authorId,
     candidates: undefined, // API에서 제공하지 않음
     tags: apiPost.keywords || [],
     analyst: undefined, // API에서 제공하지 않음

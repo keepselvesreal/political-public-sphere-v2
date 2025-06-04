@@ -16,14 +16,14 @@
  * - 토큰 만료 시간 관리 (24시간)
  * - 토큰 사용 상태 추적
  * - 자동 만료 처리 (TTL 인덱스)
- * - 사용자 ID 연결
+ * - 사용자 ID 연결 (신규 사용자의 경우 null 허용)
  * 
  * 🔒 보안 기능:
  * - 6자리 숫자 토큰 생성
  * - 토큰 재사용 방지
  * - 자동 만료 처리
  * 
- * 마지막 수정: 2025년 06월 03일 17시 40분 (KST)
+ * 마지막 수정: 2025년 06월 03일 20시 15분 (KST)
  */
 
 import mongoose, { Document, Schema, Model } from 'mongoose';
@@ -33,7 +33,7 @@ import crypto from 'crypto';
  * 이메일 인증 토큰 인터페이스 정의
  */
 export interface IEmailVerificationToken extends Document {
-  userId: mongoose.Types.ObjectId;  // 사용자 ID (ObjectId 참조)
+  userId?: mongoose.Types.ObjectId | null;  // 사용자 ID (ObjectId 참조, 신규 사용자의 경우 null 허용)
   email: string;           // 인증할 이메일 주소
   token: string;           // 6자리 인증 토큰
   isUsed: boolean;         // 토큰 사용 여부
@@ -56,7 +56,8 @@ const EmailVerificationTokenSchema = new Schema<IEmailVerificationToken>({
   userId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, '사용자 ID는 필수입니다']
+    required: false, // 신규 사용자의 경우 null 허용
+    default: null
   },
   email: {
     type: String,

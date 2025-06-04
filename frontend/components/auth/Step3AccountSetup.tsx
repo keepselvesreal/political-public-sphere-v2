@@ -11,12 +11,13 @@
  * - 라인 142-200: 약관 동의 체크박스
  * 
  * 🔧 주요 기능:
- * - 아이디 입력 (이메일을 아이디로 사용 안내)
+ * - 아이디 입력 (이메일을 아이디로 사용 옵션 포함)
  * - 비밀번호 입력 및 표시/숨김
  * - 약관 동의 (전체 동의, 개별 동의)
  * - 실시간 폼 검증
+ * - 개선된 UI/UX (들여쓰기, 통합된 약관 박스)
  * 
- * 마지막 수정: 2025년 06월 03일 19시 50분 (KST)
+ * 마지막 수정: 2025년 06월 03일 19시 46분 (KST)
  */
 
 "use client";
@@ -36,6 +37,7 @@ interface Step3AccountSetupProps {
   formData: {
     username: string;
     password: string;
+    useEmailAsUsername: boolean;
     agreeAll: boolean;
     agreeAge: boolean;
     agreeTerms: boolean;
@@ -63,16 +65,45 @@ const Step3AccountSetup: React.FC<Step3AccountSetupProps> = ({
   return (
     <div className="space-y-6">
       {/* 아이디 섹션 */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div className="flex items-center gap-2 text-green-800 mb-2">
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-slate-800 mb-2">
           <User size={16} />
           <span className="font-semibold text-sm">아이디</span>
           <span className="text-red-500">*</span>
         </div>
-        <p className="text-xs text-green-600 mb-2">이메일을 아이디로 사용</p>
-        <div className="p-2 bg-green-100 border border-green-300 rounded text-sm text-green-800">
-          {email}
-        </div>
+        
+        {/* 이메일을 아이디로 사용 체크박스 */}
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={formData.useEmailAsUsername}
+            onChange={(e) => onCheckboxChange('useEmailAsUsername', e.target.checked)}
+            className="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+          />
+          <span className="text-sm text-slate-700">이메일을 아이디로 사용</span>
+        </label>
+        
+        {/* 아이디 입력 필드 */}
+        {formData.useEmailAsUsername ? (
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700">
+            {email}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <Input
+              id="username"
+              name="username"
+              type="text"
+              value={formData.username}
+              onChange={onChange}
+              placeholder="아이디를 입력하세요 (3자 이상)"
+              className={`input-field ${formErrors.username ? 'border-red-500' : ''}`}
+            />
+            {formErrors.username && (
+              <p className="text-sm text-red-500">{formErrors.username}</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 비밀번호 입력 */}
@@ -111,8 +142,9 @@ const Step3AccountSetup: React.FC<Step3AccountSetupProps> = ({
           약관 동의
         </Label>
         
-        {/* 전체 동의 */}
-        <div className="border border-slate-200 rounded-lg p-4">
+        {/* 전체 동의 박스 - 모든 체크박스 포함 */}
+        <div className="border border-slate-200 rounded-lg p-4 space-y-4">
+          {/* 전체 동의 */}
           <label className="flex items-center gap-3 cursor-pointer">
             <input
               type="checkbox"
@@ -122,63 +154,63 @@ const Step3AccountSetup: React.FC<Step3AccountSetupProps> = ({
             />
             <span className="font-medium text-slate-900">전체 동의</span>
           </label>
-        </div>
 
-        {/* 개별 약관 동의 */}
-        <div className="space-y-3 pl-4">
-          {/* 만 14세 이상 */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.agreeAge}
-              onChange={(e) => onCheckboxChange('agreeAge', e.target.checked)}
-              className="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-            />
-            <span className="text-sm text-slate-700">
-              만 14세 이상입니다 <span className="text-red-500">*</span>
-            </span>
-          </label>
-          {formErrors.agreeAge && (
-            <p className="text-sm text-red-500 ml-7">{formErrors.agreeAge}</p>
-          )}
-
-          {/* 이용약관 동의 */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.agreeTerms}
-              onChange={(e) => onCheckboxChange('agreeTerms', e.target.checked)}
-              className="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-            />
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-slate-700">
-                <span className="text-blue-600 underline cursor-pointer hover:text-blue-800">이용약관</span>에 동의합니다 <span className="text-red-500">*</span>
+          {/* 개별 약관 동의 - 들여쓰기 적용 */}
+          <div className="space-y-3 pl-7">
+            {/* 만 14세 이상 */}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.agreeAge}
+                onChange={(e) => onCheckboxChange('agreeAge', e.target.checked)}
+                className="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-slate-700">
+                만 14세 이상입니다 <span className="text-red-500">*</span>
               </span>
-              <ExternalLink size={12} className="text-blue-600" />
-            </div>
-          </label>
-          {formErrors.agreeTerms && (
-            <p className="text-sm text-red-500 ml-7">{formErrors.agreeTerms}</p>
-          )}
+            </label>
+            {formErrors.agreeAge && (
+              <p className="text-sm text-red-500 ml-7">{formErrors.agreeAge}</p>
+            )}
 
-          {/* 개인정보처리방침 동의 */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={formData.agreePrivacy}
-              onChange={(e) => onCheckboxChange('agreePrivacy', e.target.checked)}
-              className="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-            />
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-slate-700">
-                <span className="text-blue-600 underline cursor-pointer hover:text-blue-800">개인정보처리방침</span>에 동의합니다 <span className="text-red-500">*</span>
-              </span>
-              <ExternalLink size={12} className="text-blue-600" />
-            </div>
-          </label>
-          {formErrors.agreePrivacy && (
-            <p className="text-sm text-red-500 ml-7">{formErrors.agreePrivacy}</p>
-          )}
+            {/* 이용약관 동의 */}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.agreeTerms}
+                onChange={(e) => onCheckboxChange('agreeTerms', e.target.checked)}
+                className="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+              />
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-700">
+                  <span className="text-blue-600 underline cursor-pointer hover:text-blue-800">이용약관</span>에 동의합니다 <span className="text-red-500">*</span>
+                </span>
+                <ExternalLink size={12} className="text-blue-600" />
+              </div>
+            </label>
+            {formErrors.agreeTerms && (
+              <p className="text-sm text-red-500 ml-7">{formErrors.agreeTerms}</p>
+            )}
+
+            {/* 개인정보처리방침 동의 */}
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.agreePrivacy}
+                onChange={(e) => onCheckboxChange('agreePrivacy', e.target.checked)}
+                className="h-4 w-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+              />
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-700">
+                  <span className="text-blue-600 underline cursor-pointer hover:text-blue-800">개인정보처리방침</span>에 동의합니다 <span className="text-red-500">*</span>
+                </span>
+                <ExternalLink size={12} className="text-blue-600" />
+              </div>
+            </label>
+            {formErrors.agreePrivacy && (
+              <p className="text-sm text-red-500 ml-7">{formErrors.agreePrivacy}</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

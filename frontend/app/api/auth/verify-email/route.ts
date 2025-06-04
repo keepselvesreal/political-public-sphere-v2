@@ -6,8 +6,8 @@
  * 📦 구성 요소:
  * - 라인 1-25: 필수 라이브러리 및 모델 임포트
  * - 라인 27-55: 요청/응답 데이터 검증 스키마 및 타입
- * - 라인 57-80: 사용자 검증 함수
- * - 라인 82-120: 토큰 검증 함수
+ * - 라인 57-80: 사용자 검증 함수 (신규 사용자 지원)
+ * - 라인 82-120: 토큰 검증 함수 (신규 사용자 지원)
  * - 라인 122-145: 이메일 인증 처리 함수
  * - 라인 147-200: POST 핸들러 (인증 확인 처리)
  * 
@@ -17,15 +17,18 @@
  * - 에러 처리 개선
  * - 타입 안전성 강화
  * - 비즈니스 로직 분리
+ * - 신규 사용자 인증 지원 추가
+ * - 중복 에러 메시지 방지
  * 
  * 🔧 주요 기능:
  * - 6자리 인증 코드 검증
  * - 토큰 만료 시간 확인
  * - 토큰 사용 상태 확인
  * - 사용자 이메일 인증 상태 업데이트
+ * - 신규 사용자 임시 토큰 검증
  * - 토큰 사용 처리
  * 
- * 마지막 수정: 2025년 06월 03일 18시 05분 (KST)
+ * 마지막 수정: 2025년 06월 03일 20시 10분 (KST)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -70,20 +73,22 @@ export interface ErrorResponse {
 }
 
 /**
- * 사용자 검증 함수
+ * 사용자 검증 함수 (신규 사용자 지원)
  */
 export async function validateUserForEmailVerification(email: string) {
   // 사용자 조회
   const user = await User.findOne({ email });
+  
+  // 신규 사용자인 경우 - 회원가입 과정에서는 허용
   if (!user) {
-    return {
-      success: false,
-      error: '해당 이메일로 등록된 사용자를 찾을 수 없습니다',
-      status: 404
+    return { 
+      success: true, 
+      user: null, 
+      isNewUser: true 
     };
   }
   
-  // 이미 인증된 이메일 확인
+  // 기존 사용자이지만 이미 인증된 경우
   if (user.isEmailVerified) {
     return {
       success: false,
@@ -92,27 +97,31 @@ export async function validateUserForEmailVerification(email: string) {
     };
   }
   
-  return { success: true, user };
+  return { 
+    success: true, 
+    user, 
+    isNewUser: false 
+  };
 }
 
 /**
- * 토큰 검증 함수
+ * 토큰 검증 함수 (신규 사용자 지원)
  */
-export async function validateVerificationToken(email: string, token: string) {
-  // 유효한 토큰 찾기 (미사용, 미만료)
-  const verificationToken = await EmailVerificationToken.findOne({
-    email: email.toLowerCase(),
-    token,
-    isUsed: false,
-    expiresAt: { $gt: new Date() }
-  });
+export async function validateVerificationToken(email: string, token: string, isNewUser: boolean = false) {
+  // 신규 사용자의 경우 userId가 null인 토큰을 찾음
+  const searchCondition = isNewUser 
+    ? { email: email.toLowerCase(), token, userId: null, isUsed: false, expiresAt: { $gt: new Date() } }
+    : { email: email.toLowerCase(), token, isUsed: false, expiresAt: { $gt: new Date() } };
+  
+  const verificationToken = await EmailVerificationToken.findOne(searchCondition);
   
   if (!verificationToken) {
     // 토큰이 존재하지만 만료되었는지 확인
-    const expiredToken = await EmailVerificationToken.findOne({
-      email: email.toLowerCase(),
-      token
-    });
+    const expiredTokenCondition = isNewUser
+      ? { email: email.toLowerCase(), token, userId: null }
+      : { email: email.toLowerCase(), token };
+      
+    const expiredToken = await EmailVerificationToken.findOne(expiredTokenCondition);
     
     if (expiredToken) {
       if (expiredToken.isUsed) {
@@ -188,10 +197,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errorResponse, { status: userValidation.status! });
     }
     
-    const { user } = userValidation;
+    const { user, isNewUser } = userValidation;
     
     // 토큰 검증
-    const tokenValidation = await validateVerificationToken(email, token);
+    const tokenValidation = await validateVerificationToken(email, token, isNewUser);
     if (!tokenValidation.success) {
       const errorResponse: ErrorResponse = { error: tokenValidation.error! };
       return NextResponse.json(errorResponse, { status: tokenValidation.status! });
@@ -199,27 +208,47 @@ export async function POST(request: NextRequest) {
     
     const { token: verificationToken } = tokenValidation;
     
-    // 이메일 인증 처리
-    const updatedUser = await processEmailVerification(
-      user._id.toString(),
-      (verificationToken! as any)._id.toString()
-    );
-    
-    if (!updatedUser) {
-      throw new Error('사용자 정보를 업데이트할 수 없습니다');
-    }
-    
-    // 응답 데이터
-    const response: VerifyEmailResponse = {
-      message: '이메일 인증이 완료되었습니다',
-      user: {
-        id: updatedUser._id.toString(),
-        email: updatedUser.email,
-        isEmailVerified: updatedUser.isEmailVerified
+    // 이메일 인증 처리 (신규 사용자와 기존 사용자 구분)
+    if (isNewUser) {
+      // 신규 사용자의 경우 토큰만 사용됨으로 표시
+      await EmailVerificationToken.findByIdAndUpdate((verificationToken! as any)._id, {
+        isUsed: true
+      });
+      
+      // 응답 데이터 (신규 사용자)
+      const response: VerifyEmailResponse = {
+        message: '이메일 인증이 완료되었습니다',
+        user: {
+          id: 'new-user',
+          email: email,
+          isEmailVerified: true
+        }
+      };
+      
+      return NextResponse.json(response, { status: 200 });
+    } else {
+      // 기존 사용자의 경우 기존 로직 사용
+      const updatedUser = await processEmailVerification(
+        user._id.toString(),
+        (verificationToken! as any)._id.toString()
+      );
+      
+      if (!updatedUser) {
+        throw new Error('사용자 정보를 업데이트할 수 없습니다');
       }
-    };
-    
-    return NextResponse.json(response, { status: 200 });
+      
+      // 응답 데이터 (기존 사용자)
+      const response: VerifyEmailResponse = {
+        message: '이메일 인증이 완료되었습니다',
+        user: {
+          id: updatedUser._id.toString(),
+          email: updatedUser.email,
+          isEmailVerified: updatedUser.isEmailVerified
+        }
+      };
+      
+      return NextResponse.json(response, { status: 200 });
+    }
     
   } catch (error) {
     console.error('이메일 인증 확인 중 오류:', error);

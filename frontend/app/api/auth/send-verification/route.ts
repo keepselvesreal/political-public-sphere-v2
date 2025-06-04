@@ -9,8 +9,8 @@
  * - 라인 52-65: 6자리 인증 코드 생성 함수
  * - 라인 67-85: 발송 빈도 제한 확인 함수
  * - 라인 87-110: 인증 토큰 저장 함수
- * - 라인 112-140: 이메일 발송 시뮬레이션 함수
- * - 라인 142-170: 사용자 검증 함수
+ * - 라인 112-140: 실제 이메일 발송 함수 (Gmail SMTP)
+ * - 라인 142-170: 사용자 검증 함수 (신규 사용자 지원)
  * - 라인 172-220: POST 핸들러 (인증 발송 처리)
  * 
  * 🔵 TDD Refactor 단계:
@@ -19,15 +19,18 @@
  * - 에러 처리 개선
  * - 타입 안전성 강화
  * - 비즈니스 로직 분리
+ * - 신규 사용자 인증 지원 추가
+ * - 실제 이메일 발송 기능 구현
  * 
  * 🔧 주요 기능:
  * - 6자리 인증 코드 생성
  * - 발송 빈도 제한 (1분 간격)
  * - 인증 토큰 데이터베이스 저장
- * - 이메일 발송 시뮬레이션
+ * - 실제 이메일 발송 (Gmail SMTP)
+ * - 신규 사용자 임시 토큰 지원
  * - 24시간 만료 시간 설정
  * 
- * 마지막 수정: 2025년 06월 03일 17시 45분 (KST)
+ * 마지막 수정: 2025년 06월 03일 20시 10분 (KST)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -117,42 +120,71 @@ export async function saveVerificationToken(
  */
 export async function sendVerificationEmail(email: string, code: string): Promise<void> {
   // 개발 환경에서는 콘솔에 출력
-  console.log(`📧 이메일 인증 코드 발송 시뮬레이션:`);
+  console.log(`📧 이메일 인증 코드 발송:`);
   console.log(`   받는 사람: ${email}`);
   console.log(`   인증 코드: ${code}`);
   console.log(`   만료 시간: 24시간`);
   
-  // 실제 이메일 발송 로직은 여기에 구현
-  // 예: SendGrid, AWS SES, Nodemailer 등 사용
-  
-  // 이메일 템플릿 예시:
-  // const emailTemplate = {
-  //   to: email,
-  //   subject: '이메일 인증 코드',
-  //   html: `
-  //     <h2>이메일 인증</h2>
-  //     <p>아래 인증 코드를 입력하여 이메일 인증을 완료하세요:</p>
-  //     <h3 style="color: #007bff;">${code}</h3>
-  //     <p>이 코드는 24시간 후에 만료됩니다.</p>
-  //   `
-  // };
+  // 실제 이메일 발송 로직 (Gmail SMTP 사용)
+  try {
+    // 환경 변수가 설정되어 있으면 실제 이메일 발송
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      const nodemailer = require('nodemailer');
+      
+      const transporter = nodemailer.createTransporter({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: '정치적 공론장 - 이메일 인증 코드',
+        html: `
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
+            <h2 style="color: #333; text-align: center;">이메일 인증</h2>
+            <p style="color: #666; font-size: 16px;">안녕하세요!</p>
+            <p style="color: #666; font-size: 16px;">정치적 공론장 회원가입을 위한 이메일 인증 코드입니다.</p>
+            <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
+              <h3 style="color: #007bff; font-size: 32px; margin: 0; letter-spacing: 4px;">${code}</h3>
+            </div>
+            <p style="color: #666; font-size: 14px;">이 코드는 24시간 후에 만료됩니다.</p>
+            <p style="color: #666; font-size: 14px;">본인이 요청하지 않은 경우 이 메일을 무시하세요.</p>
+          </div>
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`✅ 실제 이메일 발송 완료: ${email}`);
+    } else {
+      console.log(`⚠️ 이메일 환경 변수가 설정되지 않아 시뮬레이션으로 처리됨`);
+    }
+  } catch (error) {
+    console.error('❌ 이메일 발송 오류:', error);
+    // 이메일 발송 실패해도 API는 성공으로 처리 (보안상 이유)
+  }
 }
 
 /**
- * 사용자 검증 함수
+ * 사용자 검증 함수 (신규 사용자 지원)
  */
 export async function validateUserForVerification(email: string) {
   // 사용자 조회
   const user = await User.findOne({ email });
+  
+  // 신규 사용자인 경우 - 회원가입 과정에서는 허용
   if (!user) {
-    return {
-      success: false,
-      error: '해당 이메일로 등록된 사용자를 찾을 수 없습니다',
-      status: 404
+    return { 
+      success: true, 
+      user: null, 
+      isNewUser: true 
     };
   }
   
-  // 이미 인증된 이메일 확인
+  // 기존 사용자이지만 이미 인증된 경우
   if (user.isEmailVerified) {
     return {
       success: false,
@@ -161,7 +193,38 @@ export async function validateUserForVerification(email: string) {
     };
   }
   
-  return { success: true, user };
+  return { 
+    success: true, 
+    user, 
+    isNewUser: false 
+  };
+}
+
+/**
+ * 신규 사용자용 임시 토큰 저장 함수
+ */
+export async function saveTemporaryVerificationToken(
+  email: string, 
+  token: string
+): Promise<any> {
+  // 기존 임시 토큰 삭제 (같은 이메일의 이전 토큰)
+  await EmailVerificationToken.deleteMany({ 
+    email: email.toLowerCase(),
+    userId: null // 신규 사용자용 토큰
+  });
+  
+  // 새 임시 토큰 생성 및 저장
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24시간 후
+  
+  const verificationToken = new EmailVerificationToken({
+    userId: null, // 신규 사용자는 userId가 없음
+    email: email.toLowerCase(),
+    token,
+    expiresAt,
+    createdAt: new Date()
+  });
+  
+  return await verificationToken.save();
 }
 
 /**
@@ -194,7 +257,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errorResponse, { status: userValidation.status! });
     }
     
-    const { user } = userValidation;
+    const { user, isNewUser } = userValidation;
     
     // 발송 빈도 제한 확인
     const isRateLimited = await checkRateLimit(email);
@@ -208,12 +271,13 @@ export async function POST(request: NextRequest) {
     // 6자리 인증 코드 생성
     const verificationCode = generateVerificationCode();
     
-    // 인증 토큰 저장
-    const savedToken = await saveVerificationToken(
-      user._id.toString(), 
-      email, 
-      verificationCode
-    );
+    // 인증 토큰 저장 (신규 사용자와 기존 사용자 구분)
+    let savedToken;
+    if (isNewUser) {
+      savedToken = await saveTemporaryVerificationToken(email, verificationCode);
+    } else {
+      savedToken = await saveVerificationToken(user._id.toString(), email, verificationCode);
+    }
     
     // 이메일 발송
     await sendVerificationEmail(email, verificationCode);

@@ -12,9 +12,10 @@
  * 
  * 🔧 주요 기능:
  * - 3단계 회원가입 프로세스 관리
- * - 인증 코드 발송 및 확인
+ * - 실제 API를 통한 인증 코드 발송 및 확인
  * - 최종 회원가입 처리
  * - 단계별 폼 검증
+ * - 이메일을 아이디로 사용 옵션 지원
  * 
  * 📚 사용된 컴포넌트:
  * - Step1Verification: 1단계 인증 방식 선택
@@ -24,7 +25,7 @@
  * 🎣 사용된 훅:
  * - useSignUpForm: 단계별 폼 상태 관리
  * 
- * 마지막 수정: 2025년 06월 03일 19시 55분 (KST)
+ * 마지막 수정: 2025년 06월 03일 19시 46분 (KST)
  */
 
 "use client";
@@ -92,8 +93,22 @@ export default function SignUpPage() {
         method: verificationMethod
       });
 
-      // 실제 API 호출 시뮬레이션 (임시)
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // 실제 API 호출
+      const response = await fetch('/api/auth/send-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '인증 코드 발송에 실패했습니다');
+      }
       
       setVerificationStatus('sent');
       goToNextStep();
@@ -106,10 +121,11 @@ export default function SignUpPage() {
     } catch (error) {
       console.error('❌ 인증 코드 요청 오류:', error);
       setVerificationStatus('error');
-      setError('인증 코드 발송에 실패했습니다. 다시 시도해주세요.');
+      const errorMessage = error instanceof Error ? error.message : '인증 코드 발송에 실패했습니다. 다시 시도해주세요.';
+      setError(errorMessage);
       toast({
         title: "인증 코드 발송 실패",
-        description: "다시 시도해주세요.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -137,8 +153,24 @@ export default function SignUpPage() {
         code: formData.verificationCode
       });
 
-      // 실제 API 호출 시뮬레이션 (임시)
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // 실제 API 호출
+      const response = await fetch('/api/auth/verify-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          token: formData.verificationCode,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // API에서 반환된 에러 메시지를 그대로 사용 (중복 방지)
+        throw new Error(data.error || '인증 코드가 올바르지 않습니다');
+      }
       
       setVerificationStatus('verified');
       goToNextStep();
@@ -151,12 +183,15 @@ export default function SignUpPage() {
     } catch (error) {
       console.error('❌ 인증 코드 확인 오류:', error);
       setVerificationStatus('error');
-      setError('인증 코드가 올바르지 않습니다. 다시 확인해주세요.');
-      toast({
-        title: "인증 실패",
-        description: "인증 코드를 다시 확인해주세요.",
-        variant: "destructive",
-      });
+      const errorMessage = error instanceof Error ? error.message : '인증 코드가 올바르지 않습니다. 다시 확인해주세요.';
+      setError(errorMessage);
+      
+      // 토스트 메시지는 표시하지 않음 (중복 방지)
+      // toast({
+      //   title: "인증 실패",
+      //   description: errorMessage,
+      //   variant: "destructive",
+      // });
     }
   };
 
@@ -177,11 +212,15 @@ export default function SignUpPage() {
     setError('');
 
     try {
+      // 아이디 설정: 이메일을 아이디로 사용하는 경우 이메일, 아니면 입력한 아이디
+      const username = formData.useEmailAsUsername ? formData.email : formData.username;
+      
       console.log('🚀 회원가입 완료:', {
         name: formData.name,
         email: formData.email,
-        username: formData.email, // 이메일을 아이디로 사용
+        username: username,
         password: formData.password,
+        useEmailAsUsername: formData.useEmailAsUsername,
       });
 
       // 회원가입 API 호출
@@ -191,7 +230,7 @@ export default function SignUpPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: formData.email, // 이메일을 아이디로 사용
+          username: username,
           name: formData.name,
           email: formData.email,
           password: formData.password,
@@ -281,6 +320,7 @@ export default function SignUpPage() {
             formData={{
               username: formData.username,
               password: formData.password,
+              useEmailAsUsername: formData.useEmailAsUsername,
               agreeAll: formData.agreeAll,
               agreeAge: formData.agreeAge,
               agreeTerms: formData.agreeTerms,

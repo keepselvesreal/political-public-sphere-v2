@@ -13,11 +13,11 @@
  * 🔧 주요 기능:
  * - 3단계 회원가입 프로세스 관리
  * - 인증 방식 상태 관리
- * - 폼 데이터 상태 관리
+ * - 폼 데이터 상태 관리 (이메일을 아이디로 사용 옵션 포함)
  * - 단계별 폼 검증
  * - 인증 코드 발송/확인 상태 관리
  * 
- * 마지막 수정: 2025년 06월 03일 19시 35분 (KST)
+ * 마지막 수정: 2025년 06월 03일 19시 46분 (KST)
  */
 
 "use client";
@@ -52,6 +52,7 @@ interface FormData {
   username: string;
   password: string;
   password2: string;
+  useEmailAsUsername: boolean; // 이메일을 아이디로 사용 여부
   agreeAll: boolean;
   agreeAge: boolean;
   agreeTerms: boolean;
@@ -124,6 +125,7 @@ export const useSignUpForm = (): UseSignUpFormReturn => {
     username: '',
     password: '',
     password2: '',
+    useEmailAsUsername: false,
     agreeAll: false,
     agreeAge: false,
     agreeTerms: false,
@@ -153,12 +155,21 @@ export const useSignUpForm = (): UseSignUpFormReturn => {
     setFormData(prev => {
       const newData = { ...prev, [name]: checked };
       
+      // 이메일을 아이디로 사용 체크박스 처리
+      if (name === 'useEmailAsUsername') {
+        if (checked) {
+          newData.username = prev.email; // 이메일을 아이디로 설정
+        } else {
+          newData.username = ''; // 아이디 필드 초기화
+        }
+      }
+      
       // 전체 동의 처리
       if (name === 'agreeAll') {
         newData.agreeAge = checked;
         newData.agreeTerms = checked;
         newData.agreePrivacy = checked;
-      } else {
+      } else if (name === 'agreeAge' || name === 'agreeTerms' || name === 'agreePrivacy') {
         // 개별 항목 변경 시 전체 동의 상태 업데이트
         newData.agreeAll = newData.agreeAge && newData.agreeTerms && newData.agreePrivacy;
       }
@@ -218,13 +229,15 @@ export const useSignUpForm = (): UseSignUpFormReturn => {
   const validateStep3 = (): boolean => {
     const errors: FormErrors = {};
 
-    // 사용자명 검증
-    if (!formData.username.trim()) {
-      errors.username = '아이디를 입력해주세요';
-    } else if (formData.username.length < 3) {
-      errors.username = '아이디는 3자 이상이어야 합니다';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-      errors.username = '아이디는 영문, 숫자, 언더스코어만 사용 가능합니다';
+    // 사용자명 검증 (이메일을 아이디로 사용하지 않는 경우에만)
+    if (!formData.useEmailAsUsername) {
+      if (!formData.username.trim()) {
+        errors.username = '아이디를 입력해주세요';
+      } else if (formData.username.length < 3) {
+        errors.username = '아이디는 3자 이상이어야 합니다';
+      } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+        errors.username = '아이디는 영문, 숫자, 언더스코어만 사용 가능합니다';
+      }
     }
 
     // 비밀번호 검증
