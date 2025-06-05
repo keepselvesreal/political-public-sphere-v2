@@ -1,0 +1,6 @@
+playwright==1.52.0
+pymongo==4.13.0
+jsonschema==4.24.0
+pytest==8.4.0
+pytest-asyncio==1.0.0
+pytz 

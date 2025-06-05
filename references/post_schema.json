@@ -1,0 +1,86 @@
+{
+  "type": "object",
+  "properties": {
+    "post_id": {"type": "string"},
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "title": {"type": "string"},
+        "author": {"type": "string"},
+        "date": {"type": "string"},
+        "view_count": {"type": "integer"},
+        "up_count": {"type": "integer"},
+        "down_count": {"type": "integer"},
+        "comment_count": {"type": "integer"},
+        "category": {"type": "string"}
+      },
+      "required": ["title", "author", "date", "view_count", "up_count", "down_count", "comment_count"]
+    },
+    "content": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {"enum": ["text", "image", "video"]},
+          "order": {"type": "integer"},
+          "data": {
+            "type": "object",
+            "properties": {
+              "text": {"type": "string"},
+              "src": {"type": "string"},
+              "href": {"type": "string"},
+              "alt": {"type": "string"},
+              "width": {"type": "string"},
+              "height": {"type": "string"},
+              "autoplay": {"type": "boolean"},
+              "muted": {"type": "boolean"}
+            }
+          }
+        },
+        "required": ["type", "order", "data"]
+      }
+    },
+    "comments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "comment_id": {"type": "string"},
+          "content": {"type": "string"},
+          "author": {"type": "string"},
+          "date": {"type": "string"},
+          "media": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {"enum": ["image", "video"]},
+                "order": {"type": "integer"},
+                "data": {
+                  "type": "object",
+                  "properties": {
+                    "src": {"type": "string"},
+                    "href": {"type": "string"},
+                    "alt": {"type": "string"},
+                    "width": {"type": "string"},
+                    "height": {"type": "string"},
+                    "autoplay": {"type": "boolean"},
+                    "muted": {"type": "boolean"}
+                  }
+                }
+              },
+              "required": ["type", "order", "data"]
+            }
+          },
+          "level": {"type": "integer"},
+          "is_reply": {"type": "boolean"},
+          "parent_comment_id": {"type": "string"},
+          "up_count": {"type": "integer"},
+          "down_count": {"type": "integer"}
+        },
+        "required": ["comment_id", "content", "author", "date", "media", "level", "is_reply", "parent_comment_id", "up_count", "down_count"]
+      }
+    }
+  },
+  "required": ["post_id", "metadata", "content", "comments"]
+}
