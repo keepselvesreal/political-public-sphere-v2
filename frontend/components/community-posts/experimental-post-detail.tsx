@@ -246,11 +246,65 @@ export function ExperimentalPostDetailRenderer({
     return imageElement;
   };
 
-  // 텍스트 콘텐츠 렌더링
+  // 텍스트 콘텐츠 렌더링 (개선된 버전 - 줄바꿈 및 색상 처리)
   const renderText = (content: ScrapedPostContent, index: number) => {
     const { data } = content;
     
     if (!data || !data.text) return null;
+
+    // 색상 태그 파싱 및 처리
+    const parseColoredText = (text: string) => {
+      const parts = [];
+      let currentIndex = 0;
+      let partIndex = 0;
+
+      // [색상:값]텍스트[/색상] 패턴 찾기
+      const colorRegex = /\[색상:([^\]]+)\](.*?)\[\/색상\]/g;
+      let match;
+
+      while ((match = colorRegex.exec(text)) !== null) {
+        // 색상 태그 이전의 일반 텍스트
+        if (match.index > currentIndex) {
+          const beforeText = text.slice(currentIndex, match.index);
+          if (beforeText) {
+            parts.push(
+              <span key={`text-${partIndex++}`}>
+                {beforeText}
+              </span>
+            );
+          }
+        }
+
+        // 색상이 적용된 텍스트
+        const colorValue = match[1];
+        const coloredText = match[2];
+        parts.push(
+          <span 
+            key={`colored-${partIndex++}`}
+            style={{ color: colorValue }}
+            className="font-medium"
+          >
+            {coloredText}
+          </span>
+        );
+
+        currentIndex = match.index + match[0].length;
+      }
+
+      // 마지막 남은 텍스트
+      if (currentIndex < text.length) {
+        const remainingText = text.slice(currentIndex);
+        if (remainingText) {
+          parts.push(
+            <span key={`text-${partIndex++}`}>
+              {remainingText}
+            </span>
+          );
+        }
+      }
+
+      return parts.length > 0 ? parts : [text];
+    };
 
     return (
       <div
@@ -264,7 +318,7 @@ export function ExperimentalPostDetailRenderer({
       >
         {data.text.split('\n').map((line, lineIndex) => (
           <p key={lineIndex} className={lineIndex > 0 ? 'mt-2' : ''}>
-            {line || '\u00A0'} {/* 빈 줄은 공백으로 표시 */}
+            {line ? parseColoredText(line) : '\u00A0'} {/* 빈 줄은 공백으로 표시 */}
           </p>
         ))}
       </div>
@@ -314,12 +368,15 @@ export function ExperimentalPostDetailRenderer({
         </CardHeader>
         <CardContent className="space-y-4">
           {postData.comments.map((comment, index) => {
-            const level = comment.level || 0;
+            const level = comment.level || 1;
             const marginLeft = Math.max(0, (level - 1) * 20); // 레벨 1부터 들여쓰기
+            
+            // 고유한 키 생성 (중복 방지)
+            const uniqueKey = comment.comment_id ? `${comment.comment_id}-${index}` : `comment-${index}`;
             
             return (
               <div 
-                key={comment.comment_id || index} 
+                key={uniqueKey} 
                 className={`border-l-2 pl-4 rounded-lg p-3 mb-2 ${
                   comment.is_reply 
                     ? 'border-blue-200 bg-blue-50' 
@@ -328,28 +385,79 @@ export function ExperimentalPostDetailRenderer({
                 style={{ marginLeft: `${marginLeft}px` }}
               >
                 <div className="flex items-start space-x-3">
+                  {/* 프로필 이미지 (있는 경우만) */}
+                  {comment.media && comment.media.length > 0 && comment.media.some(m => m.data.alt === '프로필 이미지') && (
+                    <div className="flex-shrink-0">
+                      {comment.media
+                        .filter(m => m.data.alt === '프로필 이미지')
+                        .slice(0, 1)
+                        .map((media, mediaIndex) => (
+                          <img 
+                            key={mediaIndex}
+                            src={media.data.src} 
+                            alt="프로필 이미지"
+                            className="w-8 h-8 rounded-full border"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
+                          />
+                        ))}
+                    </div>
+                  )}
+                  
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
-                      {/* 대댓글 표시 */}
+                      {/* 대댓글 표시 (레벨에 따른 시각적 구분) */}
                       {comment.is_reply && (
-                        <span className="text-blue-500 text-sm">↳</span>
+                        <span className="text-blue-500 text-sm">
+                          {'└─'.repeat(Math.max(0, level - 1))}↳
+                        </span>
                       )}
                       
-                      {/* 작성자 */}
-                      <span className="font-medium text-sm">
-                        {comment.author || '익명'}
+                      {/* 작성자 - 항상 표시 */}
+                      <span className="font-medium text-sm text-gray-900">
+                        {comment.author && comment.author.trim() ? comment.author : '익명'}
                       </span>
                       
+                      {/* 레벨 표시 (디버그용) */}
+                      {level > 1 && (
+                        <span className="text-xs text-gray-400 bg-gray-200 px-1 rounded">
+                          L{level}
+                        </span>
+                      )}
+                      
                       {/* 작성시간 */}
-                      <span className="text-gray-500 text-xs">
-                        {formatDate(comment.date)}
-                      </span>
+                      {comment.date && (
+                        <span className="text-gray-500 text-xs">
+                          {formatDate(comment.date)}
+                        </span>
+                      )}
+                      
+                      {/* 부모 댓글 참조 표시 */}
+                      {comment.parent_comment_id && (
+                        <span className="text-xs text-blue-600 bg-blue-100 px-1 rounded">
+                          → {comment.parent_comment_id}
+                        </span>
+                      )}
                     </div>
                     
-                    {/* 댓글 미디어들 */}
+                    {/* 댓글 내용 - 항상 표시 */}
+                    <div className="mb-2">
+                      {comment.content && comment.content.trim() ? (
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                          {comment.content.trim()}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">내용이 없는 댓글</p>
+                      )}
+                    </div>
+                    
+                    {/* 댓글 내 이미지들 (프로필 이미지 제외) */}
                     {comment.media && comment.media.length > 0 && (
                       <div className="mb-2 space-y-2">
                         {comment.media
+                          .filter(m => m.data.alt !== '프로필 이미지') // 프로필 이미지 제외
                           .sort((a, b) => a.order - b.order)
                           .map((media, mediaIndex) => (
                             <div key={mediaIndex}>
@@ -358,7 +466,11 @@ export function ExperimentalPostDetailRenderer({
                                   src={media.data.src} 
                                   alt={media.data.alt || `댓글 이미지 ${mediaIndex + 1}`} 
                                   className="max-w-full h-auto rounded border"
-                                  style={{ maxHeight: '300px' }}
+                                  style={{ 
+                                    maxHeight: '200px',
+                                    maxWidth: '300px',
+                                    objectFit: 'contain'
+                                  }}
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
                                     target.style.display = 'none';
@@ -368,7 +480,10 @@ export function ExperimentalPostDetailRenderer({
                                 <video 
                                   src={media.data.src}
                                   className="max-w-full h-auto rounded border"
-                                  style={{ maxHeight: '300px' }}
+                                  style={{ 
+                                    maxHeight: '200px',
+                                    maxWidth: '300px'
+                                  }}
                                   autoPlay={media.data.autoplay || false}
                                   muted={media.data.muted !== false}
                                   playsInline
@@ -380,27 +495,16 @@ export function ExperimentalPostDetailRenderer({
                       </div>
                     )}
                     
-                    {/* 댓글 내용 */}
-                    {comment.content && (
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap mb-2">
-                        {comment.content}
-                      </p>
-                    )}
-                    
-                    {/* 추천/비추천 */}
+                    {/* 추천/비추천 - 항상 표시 */}
                     <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      {comment.up_count > 0 && (
-                        <span className="flex items-center space-x-1">
-                          <span>👍</span>
-                          <span>{comment.up_count}</span>
-                        </span>
-                      )}
-                      {comment.down_count > 0 && (
-                        <span className="flex items-center space-x-1">
-                          <span>👎</span>
-                          <span>{comment.down_count}</span>
-                        </span>
-                      )}
+                      <span className="flex items-center space-x-1 text-green-600">
+                        <span>👍</span>
+                        <span>{comment.up_count || 0}</span>
+                      </span>
+                      <span className="flex items-center space-x-1 text-red-600">
+                        <span>👎</span>
+                        <span>{comment.down_count || 0}</span>
+                      </span>
                     </div>
                   </div>
                 </div>

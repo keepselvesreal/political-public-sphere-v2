@@ -1,0 +1,24 @@
+{
+  "list_page": {
+    "post_rows": "tr.table_body.blocktarget",
+    "title": "td.subject a.subject_link",
+    "author": "td.writer a",
+    "recommend": "td.recomd",
+    "hit": "td.hit",
+    "time": "td.time",
+    "category": "td.divsn a"
+  },
+  "detail_page": {
+    "title": ".board_main_view .subject_inner",
+    "author": ".board_main_view .writer",
+    "date": ".board_main_view .regdate",
+    "content": ".board_main_view .view_content",
+    "info": ".board_main_view .board_info span"
+  },
+  "comments": {
+    "container": ".comment_view .comment_element",
+    "author": ".comment_writer",
+    "content": ".comment_content",
+    "date": ".comment_regdate"
+  }
+}
