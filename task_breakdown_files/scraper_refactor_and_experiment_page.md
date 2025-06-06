@@ -87,10 +87,33 @@
 ## 🔄 수행 작업 기록
 
 ### 수행 작업 목록
-(작업 진행 시 업데이트)
+- ✅ Red 단계: 새 스키마 기반 실패 테스트 작성 및 확인
+- ✅ Green 단계: 스크래퍼 코드 수정 (community 필드 추가, category 제거)
+- ✅ 실제 스크래핑 테스트: 에펨코리아, 루리웹 모두 성공
+- ✅ 데이터 저장: @/data 폴더에 올바르게 저장
+- ✅ 프론트엔드 페이지: /experiment 경로에 완전한 기능 구현
+- ✅ 게시글 상세 페이지 개선: 데이터 없을 때 처리, 원문 보기 버튼 추가
 
 ### 새로 작성하거나 수정한 파일 목록
-(작업 진행 시 업데이트)
+- scraping/tests/test_new_schema.py: 새 스키마 검증 테스트 (TDD Red 단계)
+- scraping/tests/test_green_phase.py: Green 단계 검증 테스트
+- scraping/test_final_scraper.py: 최종 스크래퍼 통합 테스트
+- scraping/scrapers/fmkorea_scraper.py: community 필드 추가, 스키마 업데이트
+- scraping/scrapers/ruliweb_scraper.py: community 필드 추가, 스키마 업데이트
+- frontend/app/experiment/page.tsx: 완전한 실험 페이지 구현
+  - JSON 파일 업로드 기능
+  - 게시글 목록 표시
+  - 게시글 상세 페이지 (메타데이터, 본문, 댓글)
+  - 원문 보기 버튼
+  - 데이터 없을 때 적절한 처리
+  - 이미지 프로토콜 처리 (// -> https://)
+
+### 그 외 유용한 내용
+- TDD 방식으로 안정적인 개발 진행
+- 새 스키마 적용 완료: community 필드 필수, category 제거
+- 에펨코리아 스크래퍼 댓글 추출 문제 발견 (향후 개선 필요)
+- 루리웹 스크래퍼는 댓글 이미지 포함하여 정상 작동
+- 프론트엔드에서 기존 JSON 파일 자동 로드 기능 구현
 
 ### 수행 작업에 대한 사용자 평가
 (사용자가 직접 작성) 

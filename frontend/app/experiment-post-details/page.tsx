@@ -1,5 +1,5 @@
 import ExperimentalPostRenderer from '@/components/community-posts/experimental-post-renderer';
-import samplePostData from '@/public/sample-post.json';
+
 
 async function getPostData() {
   // 정적 JSON 파일에서 데이터 로드

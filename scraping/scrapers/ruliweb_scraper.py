@@ -413,12 +413,13 @@ def validate_data(data: Dict[str, Any]) -> bool:
 
 
 def save_to_json(data: Dict[str, Any], filename: str) -> bool:
-    """JSON 파일로 저장"""
+    """JSON 파일로 저장 (frontend/public 폴더에 저장)"""
     try:
-        data_dir = Path(__file__).parent.parent / "data"
-        data_dir.mkdir(exist_ok=True)
+        # frontend/public 폴더에 저장
+        public_dir = Path(__file__).parent.parent.parent / "frontend" / "public"
+        public_dir.mkdir(parents=True, exist_ok=True)
         
-        filepath = data_dir / filename
+        filepath = public_dir / filename
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         

@@ -101,27 +101,29 @@ const PostList: React.FC<PostListProps> = ({ posts, onSelectPost }) => {
               </div>
               
               <div className="text-sm text-gray-600 mb-3">
-                <span className="font-medium">{post.metadata.author}</span>
+                <span className="font-medium">
+                  {post.metadata.author || '작성자 정보 없음'}
+                </span>
                 <span className="mx-2">•</span>
-                <span>{post.metadata.date}</span>
+                <span>{post.metadata.date || '날짜 정보 없음'}</span>
               </div>
               
               <div className="flex items-center space-x-4 text-sm text-gray-500">
                 <div className="flex items-center">
                   <Eye className="w-4 h-4 mr-1" />
-                  {post.metadata.view_count.toLocaleString()}
+                  {(post.metadata.view_count || 0).toLocaleString()}
                 </div>
                 <div className="flex items-center">
                   <ThumbsUp className="w-4 h-4 mr-1" />
-                  {post.metadata.up_count}
+                  {post.metadata.up_count || 0}
                 </div>
                 <div className="flex items-center">
                   <MessageCircle className="w-4 h-4 mr-1" />
-                  {post.metadata.comment_count}
+                  {post.comments?.length || 0}
                 </div>
                 <div className="flex items-center">
                   <FileText className="w-4 h-4 mr-1" />
-                  {post.content.length}개 요소
+                  {post.content?.length || 0}개 요소
                 </div>
               </div>
             </CardContent>
@@ -139,39 +141,64 @@ interface PostDetailProps {
 }
 
 const PostDetail: React.FC<PostDetailProps> = ({ post, onBack }) => {
+  // 원문 URL 생성
+  const getOriginalUrl = (post: PostData) => {
+    if (post.community === 'fmkorea') {
+      return `https://www.fmkorea.com/${post.post_id}`;
+    } else if (post.community === 'ruliweb') {
+      return `https://bbs.ruliweb.com/community/board/300148/read/${post.post_id}`;
+    }
+    return '';
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Button onClick={onBack} variant="outline">
           ← 목록으로 돌아가기
         </Button>
-        <Badge variant="outline" className="text-lg px-3 py-1">
-          {post.community}
-        </Badge>
+        <div className="flex items-center space-x-3">
+          <Button 
+            onClick={() => window.open(getOriginalUrl(post), '_blank')}
+            variant="default"
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            원문 보기
+          </Button>
+          <Badge variant="outline" className="text-lg px-3 py-1">
+            {post.community}
+          </Badge>
+        </div>
       </div>
 
       {/* 메타데이터 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">{post.metadata.title}</CardTitle>
+          <CardTitle className="text-2xl">{post.metadata.title || '제목 없음'}</CardTitle>
           <div className="flex items-center justify-between text-sm text-gray-600">
             <div>
-              <span className="font-medium">{post.metadata.author}</span>
+              <span className="font-medium">
+                {post.metadata.author || '작성자 정보 없음'}
+              </span>
               <span className="mx-2">•</span>
-              <span>{post.metadata.date}</span>
+              <span>{post.metadata.date || '날짜 정보 없음'}</span>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center">
                 <Eye className="w-4 h-4 mr-1" />
-                {post.metadata.view_count.toLocaleString()}
+                {(post.metadata.view_count || 0).toLocaleString()}
               </div>
               <div className="flex items-center">
                 <ThumbsUp className="w-4 h-4 mr-1" />
-                {post.metadata.up_count}
+                {post.metadata.up_count || 0}
               </div>
               <div className="flex items-center">
                 <ThumbsDown className="w-4 h-4 mr-1" />
-                {post.metadata.down_count}
+                {post.metadata.down_count || 0}
+              </div>
+              <div className="flex items-center">
+                <MessageCircle className="w-4 h-4 mr-1" />
+                {post.comments?.length || 0}개
               </div>
             </div>
           </div>
@@ -192,7 +219,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onBack }) => {
               {item.type === 'image' && (
                 <div className="space-y-2">
                   <img
-                    src={item.data.src}
+                    src={item.data.src?.startsWith('//') ? `https:${item.data.src}` : item.data.src}
                     alt={item.data.alt || '이미지'}
                     className="max-w-full h-auto rounded-lg shadow-sm"
                     style={{
@@ -222,56 +249,84 @@ const PostDetail: React.FC<PostDetailProps> = ({ post, onBack }) => {
       {/* 댓글 */}
       <Card>
         <CardHeader>
-          <CardTitle>댓글 ({post.comments.length}개)</CardTitle>
+          <CardTitle>댓글 ({post.comments?.length || 0}개)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {post.comments.map((comment) => (
-            <div
-              key={comment.comment_id}
-              className={`border rounded-lg p-4 ${
-                comment.level > 0 ? 'ml-8 border-l-4 border-blue-200' : ''
-              } ${comment.is_best ? 'bg-yellow-50 border-yellow-300' : 'bg-gray-50'}`}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium">{comment.author}</span>
-                  {comment.is_best && (
-                    <Badge variant="secondary" className="text-xs">BEST</Badge>
-                  )}
-                  {comment.is_reply && (
-                    <Badge variant="outline" className="text-xs">답글</Badge>
-                  )}
-                </div>
-                <div className="flex items-center space-x-2 text-sm text-gray-500">
-                  <span>{comment.date}</span>
-                  <div className="flex items-center space-x-1">
-                    <ThumbsUp className="w-3 h-3" />
-                    <span>{comment.up_count}</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <ThumbsDown className="w-3 h-3" />
-                    <span>{comment.down_count}</span>
-                  </div>
-                </div>
-              </div>
-              
-              <p className="text-gray-800 mb-3 whitespace-pre-wrap">{comment.content}</p>
-              
-              {/* 댓글 이미지 */}
-              {comment.media.length > 0 && (
-                <div className="space-y-2">
-                  {comment.media.map((media, index) => (
-                    <img
-                      key={index}
-                      src={media.data.src}
-                      alt={media.data.alt || '댓글 이미지'}
-                      className="max-w-xs h-auto rounded border"
-                    />
-                  ))}
-                </div>
-              )}
+          {!post.comments || post.comments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-lg font-medium mb-2">댓글이 없습니다</p>
+              <p className="text-sm">
+                {post.community === 'fmkorea' 
+                  ? '에펨코리아 스크래퍼에서 댓글을 추출하지 못했습니다.' 
+                  : '아직 댓글이 작성되지 않았습니다.'
+                }
+              </p>
+              <Button 
+                onClick={() => window.open(getOriginalUrl(post), '_blank')}
+                variant="outline"
+                className="mt-4"
+              >
+                원문에서 댓글 확인하기
+              </Button>
             </div>
-          ))}
+          ) : (
+            post.comments.map((comment) => (
+              <div
+                key={comment.comment_id}
+                className={`border rounded-lg p-4 ${
+                  comment.level > 0 ? `ml-${Math.min(comment.level * 4, 16)} border-l-4 border-blue-200` : ''
+                } ${comment.is_best ? 'bg-yellow-50 border-yellow-300' : 'bg-gray-50'}`}
+                style={{
+                  marginLeft: comment.level > 0 ? `${Math.min(comment.level * 20, 100)}px` : '0px'
+                }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium">{comment.author || '익명'}</span>
+                    {comment.is_best && (
+                      <Badge variant="secondary" className="text-xs">BEST</Badge>
+                    )}
+                    {comment.is_reply && (
+                      <Badge variant="outline" className="text-xs">
+                        답글 (레벨 {comment.level})
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                    <span>{comment.date || '날짜 없음'}</span>
+                    <div className="flex items-center space-x-1">
+                      <ThumbsUp className="w-3 h-3" />
+                      <span>{comment.up_count || 0}</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <ThumbsDown className="w-3 h-3" />
+                      <span>{comment.down_count || 0}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="text-gray-800 mb-3 whitespace-pre-wrap">
+                  {comment.content || '내용이 없습니다.'}
+                </p>
+                
+                {/* 댓글 이미지 */}
+                {comment.media && comment.media.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600 font-medium">첨부 이미지:</p>
+                    {comment.media.map((media, index) => (
+                      <img
+                        key={index}
+                        src={media.data.src?.startsWith('//') ? `https:${media.data.src}` : media.data.src}
+                        alt={media.data.alt || '댓글 이미지'}
+                        className="max-w-xs h-auto rounded border shadow-sm"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
     </div>
@@ -284,35 +339,38 @@ export default function ExperimentPage() {
   const [selectedPost, setSelectedPost] = useState<PostData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // 기존 JSON 파일들 로드
+  // 기존 JSON 파일들 로드 (public 폴더의 모든 JSON 파일)
   React.useEffect(() => {
     const loadExistingPosts = async () => {
       try {
         const existingPosts: PostData[] = [];
         
-        // 에펨코리아 게시글 로드
-        try {
-          const fmkoreaResponse = await fetch('/fmkorea_8485393463.json');
-          if (fmkoreaResponse.ok) {
-            const fmkoreaData = await fmkoreaResponse.json();
-            existingPosts.push(fmkoreaData);
+        // 알려진 JSON 파일들 목록 (실제로는 API 엔드포인트에서 가져와야 하지만, 일단 하드코딩)
+        const jsonFiles = [
+          'fmkorea_8485393463.json',
+          'ruliweb_38077550.json',
+          'sample-post.json',
+          'fmkorea_8485697756_new.json',
+          'ruliweb_38077836_new.json'
+        ];
+        
+        for (const filename of jsonFiles) {
+          try {
+            const response = await fetch(`/${filename}`);
+            if (response.ok) {
+              const data = await response.json();
+              // 기본 스키마 검증
+              if (data.post_id && data.community && data.metadata) {
+                existingPosts.push(data);
+              }
+            }
+          } catch (error) {
+            console.log(`${filename} 로드 실패:`, error);
           }
-        } catch (error) {
-          console.log('에펨코리아 데이터 로드 실패:', error);
-        }
-
-        // 루리웹 게시글 로드
-        try {
-          const ruliwebResponse = await fetch('/ruliweb_38077550.json');
-          if (ruliwebResponse.ok) {
-            const ruliwebData = await ruliwebResponse.json();
-            existingPosts.push(ruliwebData);
-          }
-        } catch (error) {
-          console.log('루리웹 데이터 로드 실패:', error);
         }
 
         setPosts(existingPosts);
+        console.log(`${existingPosts.length}개의 게시글을 로드했습니다.`);
       } catch (error) {
         console.error('기존 게시글 로드 중 오류:', error);
       }

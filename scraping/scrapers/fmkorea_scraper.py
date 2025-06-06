@@ -14,35 +14,34 @@ from playwright.async_api import async_playwright, Browser, Page, ElementHandle
 from jsonschema import validate, ValidationError
 
 
-# 에펨코리아 셀렉터 정의
+# 에펨코리아 셀렉터 정의 (실제 HTML 구조에 맞게 수정)
 FMKOREA_SELECTORS = {
     "metadata": {
-        "title": ".np_18px_span, h3",
-        "author": ".nick, .member_info .nick",
-        "date": ".date, .regdate",
-        "view_count": ".hit, .view_count",
-        "up_count": ".vote_up .count, .like_count",
-        "down_count": ".vote_down .count, .dislike_count",
-        "comment_count": ".replyNum, .comment_count"
+        "title": ".np_18px_span",
+        "author": ".member_plate",
+        "date": ".date",
+        "view_count": "span:contains('조회 수') b",
+        "up_count": "span:contains('추천 수') b",
+        "down_count": "span:contains('비추천 수') b",
+        "comment_count": "span:contains('댓글') b"
     },
     "content": {
-        "container": ".xe_content, .rd_body, .view_content",
+        "container": ".xe_content, .rd_body",
         "text": "p, div:not([class]):not([id])",
         "image": "img",
         "video": "video"
     },
     "comments": {
-        "container": ".fdb_lst_ul, .comment_list",
-        "items": ".fdb_lst_li, .comment_item",
-        "author": ".nick, .member_plate .nick",
-        "content": ".xe_content, .comment_content",
-        "date": ".date, .regdate",
-        "up_count": ".vote_up .count, .like_count",
-        "down_count": ".vote_down .count, .dislike_count",
-        "level": "[data-depth]",
-        "reply_indicator": ".reply_icon",
-        "comment_id": "[data-comment-srl]",
-        "images": ".xe_content img, .comment_content img"
+        "container": ".fdb_lst_ul",
+        "items": ".fdb_itm",
+        "author": ".member_plate",
+        "content": ".xe_content",
+        "date": ".meta .date",
+        "up_count": ".voted_count",
+        "down_count": ".blamed_count",
+        "comment_id": "[id^='comment_']",
+        "reply_indicator": ".re",
+        "images": ".xe_content img"
     }
 }
 
@@ -177,43 +176,60 @@ async def setup_browser() -> tuple[Browser, Page]:
 
 
 async def extract_metadata(page: Page) -> Dict[str, Any]:
-    """메타데이터 추출"""
+    """메타데이터 추출 (실제 HTML 구조에 맞게 수정)"""
     metadata = {}
     
     # 제목
-    title_element = await page.query_selector(FMKOREA_SELECTORS["metadata"]["title"])
+    title_element = await page.query_selector(".np_18px_span")
     metadata["title"] = await title_element.inner_text() if title_element else ""
     
-    # 작성자
-    author_element = await page.query_selector(FMKOREA_SELECTORS["metadata"]["author"])
-    metadata["author"] = await author_element.inner_text() if author_element else ""
+    # 작성자 (member_plate에서 텍스트만 추출)
+    author_element = await page.query_selector(".member_plate")
+    if author_element:
+        author_text = await author_element.inner_text()
+        metadata["author"] = author_text.strip() if author_text else ""
+    else:
+        metadata["author"] = ""
     
     # 날짜
-    date_element = await page.query_selector(FMKOREA_SELECTORS["metadata"]["date"])
+    date_element = await page.query_selector(".date")
     metadata["date"] = await date_element.inner_text() if date_element else ""
     
-    # 조회수
-    view_element = await page.query_selector(FMKOREA_SELECTORS["metadata"]["view_count"])
-    view_text = await view_element.inner_text() if view_element else "0"
-    metadata["view_count"] = extract_number(view_text)
-    
-    # 추천수
-    up_element = await page.query_selector(FMKOREA_SELECTORS["metadata"]["up_count"])
-    up_text = await up_element.inner_text() if up_element else "0"
-    metadata["up_count"] = extract_number(up_text)
-    
-    # 비추천수
-    down_element = await page.query_selector(FMKOREA_SELECTORS["metadata"]["down_count"])
-    down_text = await down_element.inner_text() if down_element else "0"
-    metadata["down_count"] = extract_number(down_text)
-    
-    # 댓글수
-    comment_element = await page.query_selector(FMKOREA_SELECTORS["metadata"]["comment_count"])
-    comment_text = await comment_element.inner_text() if comment_element else "0"
-    metadata["comment_count"] = extract_number(comment_text)
-    
-    # 카테고리 (기본값)
-    metadata["category"] = ""
+    # 조회수, 추천수, 댓글수 (span 텍스트에서 추출)
+    try:
+        # 모든 span 요소를 가져와서 텍스트 확인
+        span_elements = await page.query_selector_all("span")
+        
+        metadata["view_count"] = 0
+        metadata["up_count"] = 0
+        metadata["down_count"] = 0
+        metadata["comment_count"] = 0
+        
+        for span in span_elements:
+            text = await span.inner_text()
+            if "조회 수" in text:
+                # "조회 수 202" 형태에서 숫자 추출
+                b_element = await span.query_selector("b")
+                if b_element:
+                    view_text = await b_element.inner_text()
+                    metadata["view_count"] = extract_number(view_text)
+            elif "추천 수" in text:
+                b_element = await span.query_selector("b")
+                if b_element:
+                    up_text = await b_element.inner_text()
+                    metadata["up_count"] = extract_number(up_text)
+            elif "댓글" in text:
+                b_element = await span.query_selector("b")
+                if b_element:
+                    comment_text = await b_element.inner_text()
+                    metadata["comment_count"] = extract_number(comment_text)
+                    
+    except Exception as e:
+        print(f"메타데이터 추출 중 오류: {e}")
+        metadata["view_count"] = 0
+        metadata["up_count"] = 0
+        metadata["down_count"] = 0
+        metadata["comment_count"] = 0
     
     return metadata
 
@@ -288,76 +304,132 @@ async def extract_content(page: Page) -> List[Dict[str, Any]]:
 
 
 async def extract_comments(page: Page) -> List[Dict[str, Any]]:
-    """댓글 추출"""
+    """댓글 추출 (실제 HTML 구조에 맞게 수정)"""
     comments = []
     
-    comment_items = await page.query_selector_all(FMKOREA_SELECTORS["comments"]["items"])
+    # 댓글 컨테이너 확인
+    comment_container = await page.query_selector(".fdb_lst_ul")
+    if not comment_container:
+        return comments
+    
+    comment_items = await comment_container.query_selector_all(".fdb_itm")
     
     for item in comment_items:
-        comment_data = {}
-        
-        # 댓글 ID
-        comment_id = await item.get_attribute("data-comment-srl") or ""
-        comment_data["comment_id"] = comment_id
-        
-        # 작성자
-        author_element = await item.query_selector(FMKOREA_SELECTORS["comments"]["author"])
-        comment_data["author"] = await author_element.inner_text() if author_element else ""
-        
-        # 내용
-        content_element = await item.query_selector(FMKOREA_SELECTORS["comments"]["content"])
-        comment_data["content"] = await content_element.inner_text() if content_element else ""
-        
-        # 날짜
-        date_element = await item.query_selector(FMKOREA_SELECTORS["comments"]["date"])
-        comment_data["date"] = await date_element.inner_text() if date_element else ""
-        
-        # 추천수
-        up_element = await item.query_selector(FMKOREA_SELECTORS["comments"]["up_count"])
-        up_text = await up_element.inner_text() if up_element else "0"
-        comment_data["up_count"] = extract_number(up_text)
-        
-        # 비추천수
-        down_element = await item.query_selector(FMKOREA_SELECTORS["comments"]["down_count"])
-        down_text = await down_element.inner_text() if down_element else "0"
-        comment_data["down_count"] = extract_number(down_text)
-        
-        # 레벨 (대댓글 깊이)
-        level_element = await item.query_selector(FMKOREA_SELECTORS["comments"]["level"])
-        level = await level_element.get_attribute("data-depth") if level_element else "0"
-        comment_data["level"] = int(level) if level.isdigit() else 0
-        
-        # 대댓글 여부
-        reply_element = await item.query_selector(FMKOREA_SELECTORS["comments"]["reply_indicator"])
-        comment_data["is_reply"] = reply_element is not None
-        
-        # 부모 댓글 ID (대댓글인 경우)
-        comment_data["parent_comment_id"] = ""
-        if comment_data["is_reply"] and len(comments) > 0:
-            # 이전 댓글 중 레벨이 낮은 것을 부모로 설정
-            for prev_comment in reversed(comments):
-                if prev_comment["level"] < comment_data["level"]:
-                    comment_data["parent_comment_id"] = prev_comment["comment_id"]
-                    break
-        
-        # 미디어 (이미지)
-        media = []
-        image_elements = await item.query_selector_all(FMKOREA_SELECTORS["comments"]["images"])
-        for idx, img in enumerate(image_elements):
-            src = await img.get_attribute("src") or ""
-            alt = await img.get_attribute("alt") or ""
-            if src:
-                media.append({
-                    "type": "image",
-                    "order": idx,
-                    "data": {
-                        "src": src,
-                        "alt": alt
-                    }
-                })
-        
-        comment_data["media"] = media
-        comments.append(comment_data)
+        try:
+            comment_data = {}
+            
+            # 댓글 ID (id 속성에서 추출)
+            item_id = await item.get_attribute("id") or ""
+            if item_id.startswith("comment_"):
+                comment_id = item_id.replace("comment_", "")
+            else:
+                comment_id = item_id
+            comment_data["comment_id"] = comment_id
+            
+            # 작성자 (member_plate에서 텍스트 추출)
+            author_element = await item.query_selector(".member_plate")
+            if author_element:
+                author_text = await author_element.inner_text()
+                comment_data["author"] = author_text.strip() if author_text else ""
+            else:
+                comment_data["author"] = ""
+            
+            # 내용 (.xe_content에서 추출)
+            content_element = await item.query_selector(".xe_content")
+            if content_element:
+                content_text = await content_element.inner_text()
+                comment_data["content"] = content_text.strip() if content_text else ""
+            else:
+                comment_data["content"] = ""
+            
+            # 날짜 (.meta .date에서 추출)
+            date_element = await item.query_selector(".meta .date")
+            comment_data["date"] = await date_element.inner_text() if date_element else ""
+            
+            # 추천수 (.voted_count에서 추출)
+            up_element = await item.query_selector(".voted_count")
+            up_text = await up_element.inner_text() if up_element else "0"
+            comment_data["up_count"] = extract_number(up_text)
+            
+            # 비추천수 (.blamed_count에서 추출)
+            down_element = await item.query_selector(".blamed_count")
+            down_text = await down_element.inner_text() if down_element else "0"
+            comment_data["down_count"] = extract_number(down_text)
+            
+            # 대댓글 여부 및 레벨 (margin-left 스타일로 판단)
+            style = await item.get_attribute("style") or ""
+            is_reply = "margin-left" in style
+            comment_data["is_reply"] = is_reply
+            
+            # 레벨 계산 (margin-left 값으로 - 더 정확한 계산)
+            if is_reply:
+                if "margin-left:10%" in style:
+                    comment_data["level"] = 5
+                elif "margin-left:8%" in style:
+                    comment_data["level"] = 4
+                elif "margin-left:6%" in style:
+                    comment_data["level"] = 3
+                elif "margin-left:4%" in style:
+                    comment_data["level"] = 2
+                elif "margin-left:2%" in style:
+                    comment_data["level"] = 1
+                else:
+                    # 다른 margin-left 값이 있을 수 있으니 정규식으로 추출
+                    import re
+                    margin_match = re.search(r'margin-left:(\d+)%', style)
+                    if margin_match:
+                        margin_percent = int(margin_match.group(1))
+                        comment_data["level"] = margin_percent // 2  # 2%씩 증가하므로
+                    else:
+                        comment_data["level"] = 1
+            else:
+                comment_data["level"] = 0
+            
+            # 부모 댓글 ID (대댓글인 경우)
+            comment_data["parent_comment_id"] = ""
+            if comment_data["is_reply"]:
+                # 1. HTML에서 findComment() 함수로 직접 참조하는 부모 ID 찾기
+                try:
+                    find_parent_element = await item.query_selector(".findParent")
+                    if find_parent_element:
+                        onclick_attr = await find_parent_element.get_attribute("onclick")
+                        if onclick_attr and "findComment(" in onclick_attr:
+                            import re
+                            parent_id_match = re.search(r'findComment\((\d+)\)', onclick_attr)
+                            if parent_id_match:
+                                comment_data["parent_comment_id"] = parent_id_match.group(1)
+                except:
+                    pass
+                
+                # 2. findComment로 찾지 못한 경우, 이전 댓글 중 레벨이 낮은 것을 부모로 설정
+                if not comment_data["parent_comment_id"] and len(comments) > 0:
+                    for prev_comment in reversed(comments):
+                        if prev_comment["level"] < comment_data["level"]:
+                            comment_data["parent_comment_id"] = prev_comment["comment_id"]
+                            break
+            
+            # 미디어 (이미지)
+            media = []
+            image_elements = await item.query_selector_all(".xe_content img")
+            for idx, img in enumerate(image_elements):
+                src = await img.get_attribute("src") or ""
+                alt = await img.get_attribute("alt") or ""
+                if src:
+                    media.append({
+                        "type": "image",
+                        "order": idx,
+                        "data": {
+                            "src": src,
+                            "alt": alt
+                        }
+                    })
+            
+            comment_data["media"] = media
+            comments.append(comment_data)
+            
+        except Exception as e:
+            print(f"댓글 추출 중 오류: {e}")
+            continue
     
     return comments
 
@@ -373,12 +445,13 @@ def validate_data(data: Dict[str, Any]) -> bool:
 
 
 def save_to_json(data: Dict[str, Any], filename: str) -> bool:
-    """JSON 파일로 저장"""
+    """JSON 파일로 저장 (frontend/public 폴더에 저장)"""
     try:
-        data_dir = Path(__file__).parent.parent / "data"
-        data_dir.mkdir(exist_ok=True)
+        # frontend/public 폴더에 저장
+        public_dir = Path(__file__).parent.parent.parent / "frontend" / "public"
+        public_dir.mkdir(parents=True, exist_ok=True)
         
-        filepath = data_dir / filename
+        filepath = public_dir / filename
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         
