@@ -2,7 +2,6 @@
   "type": "object",
   "properties": {
     "post_id": {"type": "string"},
-    "community": {"type": "string"},
     "metadata": {
       "type": "object",
       "properties": {
@@ -12,7 +11,8 @@
         "view_count": {"type": "integer"},
         "up_count": {"type": "integer"},
         "down_count": {"type": "integer"},
-        "comment_count": {"type": "integer"}
+        "comment_count": {"type": "integer"},
+        "category": {"type": "string"}
       },
       "required": ["title", "author", "date", "view_count", "up_count", "down_count", "comment_count"]
     },
@@ -82,5 +82,5 @@
       }
     }
   },
-  "required": ["post_id", "community", "metadata", "content", "comments"]
+  "required": ["post_id", "metadata", "content", "comments"]
 }
